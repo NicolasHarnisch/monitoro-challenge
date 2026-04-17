@@ -242,17 +242,9 @@ export function IncidentTable({
           variables: { 
             id: incident.id, 
             status: newStatus,
-            // Passamos nulo para limpar os campos via UPDATE_SERVICE_ORDER (se a mutation permitir)
-            // No entanto, conforme resolvers.ts, updateServiceOrder recebe o objeto 'updates'.
-            // Vamos usar a mutation UPDATE_SERVICE_ORDER completa aqui para garantir a limpeza.
           },
-          // Nota: UPDATE_STATUS no graphql-queries.ts aponta para updateServiceOrder.
-          // Se passarmos campos extras, eles serão ignorados se não estiverem no GQL.
-          // Vou ajustar a ação para chamar a mutation de edição completa se for reabertura.
         });
 
-        // Para simplificar e garantir a limpeza, vamos usar a mutation genérica UPDATE_SERVICE_ORDER
-        // mas primeiro vamos ver se precisamos de uma mutation específica no lib/graphql-queries.ts
       } else {
         await updateStatusMutation({ variables: { id: incident.id, status: newStatus } });
       }
@@ -462,8 +454,8 @@ export function IncidentTable({
       </div>
 
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent showCloseButton={false} className="sm:max-w-[550px] border-0 rounded-[20px] p-0 overflow-hidden bg-white shadow-2xl">
-          <div className="bg-[#382b22] px-8 py-6 text-white relative flex flex-col justify-center min-h-[100px]">
+        <DialogContent showCloseButton={false} className="w-[95vw] sm:max-w-[550px] border-0 rounded-[20px] p-0 overflow-hidden bg-white shadow-2xl flex flex-col max-h-[95vh]">
+          <div className="bg-[#382b22] px-6 sm:px-8 py-5 sm:py-6 text-white relative flex flex-col justify-center min-h-[90px] flex-shrink-0">
             <button onClick={() => setIsDetailsOpen(false)} className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors">
               <X size={20} />
             </button>
@@ -479,8 +471,8 @@ export function IncidentTable({
               </div>
             </div>
           </div>
-          <div className="p-8 space-y-6">
-            <div className="grid grid-cols-2 gap-6 bg-gray-50/50 p-4 border border-gray-100 rounded-xl">
+          <div className="p-5 sm:p-8 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 bg-gray-50/50 p-4 border border-gray-100 rounded-xl">
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Equipamento</p>
                 <p className="text-base font-bold text-gray-900 flex items-center gap-2">
@@ -499,7 +491,7 @@ export function IncidentTable({
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tipo de Serviço</p>
                 <div className="pt-1"><TypeBadge type={selectedIncident?.type ?? (selectedIncident as any)?.typeOfOccurrence ?? ''} /></div>
@@ -556,7 +548,7 @@ export function IncidentTable({
                 </div>
               </div>
             )}
-            <div className="pt-4 border-t border-gray-100 flex justify-between items-center text-[10px] text-gray-400 font-medium uppercase tracking-widest">
+            <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4 text-[10px] text-gray-400 font-medium uppercase tracking-widest">
               <div className="flex items-center gap-2">
                 <Activity size={12} />
                 Abertura: {selectedIncident?.createdAt
@@ -564,7 +556,7 @@ export function IncidentTable({
                   : '-'}
               </div>
               <Button variant="ghost" size="sm" onClick={() => selectedIncident && handlePrint(selectedIncident)}
-                className="h-8 text-[10px] gap-2 hover:bg-[#382b22] hover:text-white transition-all">
+                className="w-full sm:w-auto h-8 text-[10px] gap-2 hover:bg-[#382b22] hover:text-white transition-all">
                 <Printer size={12} /> Gerar PDF da OS
               </Button>
             </div>
@@ -573,7 +565,7 @@ export function IncidentTable({
       </Dialog>
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-[700px] p-0 border-0 overflow-hidden rounded-[16px] gap-0">
+        <DialogContent className="w-[95vw] sm:max-w-[700px] p-0 border-0 overflow-y-auto rounded-[16px] gap-0 max-h-[95vh] custom-scrollbar">
           <IncidentForm
             initialData={selectedIncident}
             onSuccess={() => setIsEditOpen(false)}
@@ -583,7 +575,7 @@ export function IncidentTable({
       </Dialog>
 
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent className="sm:max-w-[400px] border-0 rounded-[16px] text-center p-8">
+        <DialogContent className="w-[90vw] sm:max-w-[400px] border-0 rounded-[16px] text-center p-6 sm:p-8">
           <div className="mx-auto w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mb-6">
             <Trash2 size={32} />
           </div>
@@ -599,7 +591,7 @@ export function IncidentTable({
       </Dialog>
 
       <Dialog open={isCompleteOpen} onOpenChange={setIsCompleteOpen}>
-        <DialogContent className="sm:max-w-[450px] border-0 rounded-[16px] p-8">
+        <DialogContent className="w-[95vw] sm:max-w-[450px] border-0 rounded-[16px] p-6 sm:p-8 max-h-[95vh] overflow-y-auto custom-scrollbar">
           <DialogTitle className="text-xl font-bold mb-4">Concluir Ordem de Serviço</DialogTitle>
           <div className="space-y-4">
             <div>

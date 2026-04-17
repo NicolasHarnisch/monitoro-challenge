@@ -1,13 +1,5 @@
 /**
- * Resolvers GraphQL — conectam queries e mutations ao banco via Prisma.
- *
- * A lógica aqui foi portada do projeto de referência:
- *   exemplos-para-desafio-ERP/BACKEND/service-order/service-order.service.ts
- *   exemplos-para-desafio-ERP/BACKEND/machine/machine.service.ts
- *
- * No projeto de referência (NestJS), cada método existe como um @Injectable Service
- * injetado no Resolver via DI. Aqui, consolidamos tudo neste arquivo pois o
- * Next.js não usa o padrão de módulos do NestJS.
+ * conecta queries e mutations ao banco via Prisma.
  */
 
 import { prisma } from '@/lib/prisma';
