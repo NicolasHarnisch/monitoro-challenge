@@ -74,6 +74,9 @@ export const typeDefs = `#graphql
       description:      String
       severity:         String
       status:           String
+      serviceEndDate:   String
+      servicePerformed: String
+      serviceOrderLink: String
     ): ServiceOrder!
 
     # Fecha uma OS como Concluída — equivalente a completeServiceOrder do projeto de referência.

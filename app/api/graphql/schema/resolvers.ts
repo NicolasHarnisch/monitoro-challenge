@@ -97,11 +97,21 @@ export const resolvers = {
         description?: string;
         severity?: string;
         status?: string;
+        serviceEndDate?: string | null;
+        servicePerformed?: string | null;
+        serviceOrderLink?: string | null;
       }
     ) => {
+      // Se houver serviceEndDate como string, convertemos para Date. 
+      // Se for nulo, passamos nulo para o Prisma.
+      const data: any = { ...updates };
+      if (updates.serviceEndDate !== undefined) {
+        data.serviceEndDate = updates.serviceEndDate ? new Date(updates.serviceEndDate) : null;
+      }
+
       const order = await prisma.serviceOrder.update({
         where: { id },
-        data: updates,
+        data,
         include: { machine: true },
       });
 

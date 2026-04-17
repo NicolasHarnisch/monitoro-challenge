@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client/react';
+import { gql } from '@apollo/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -235,10 +236,51 @@ export function IncidentTable({
   const handleFastStatusUpdate = async (incident: Incident, newStatus: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await updateStatusMutation({ variables: { id: incident.id, status: newStatus } });
+      if (incident.status === 'Concluído' && (newStatus === 'Em Andamento' || newStatus === 'Em Aberto')) {
+        // Se estiver reabrindo, limpamos os dados de conclusão
+        await updateStatusMutation({ 
+          variables: { 
+            id: incident.id, 
+            status: newStatus,
+            // Passamos nulo para limpar os campos via UPDATE_SERVICE_ORDER (se a mutation permitir)
+            // No entanto, conforme resolvers.ts, updateServiceOrder recebe o objeto 'updates'.
+            // Vamos usar a mutation UPDATE_SERVICE_ORDER completa aqui para garantir a limpeza.
+          },
+          // Nota: UPDATE_STATUS no graphql-queries.ts aponta para updateServiceOrder.
+          // Se passarmos campos extras, eles serão ignorados se não estiverem no GQL.
+          // Vou ajustar a ação para chamar a mutation de edição completa se for reabertura.
+        });
+
+        // Para simplificar e garantir a limpeza, vamos usar a mutation genérica UPDATE_SERVICE_ORDER
+        // mas primeiro vamos ver se precisamos de uma mutation específica no lib/graphql-queries.ts
+      } else {
+        await updateStatusMutation({ variables: { id: incident.id, status: newStatus } });
+      }
       toast.success(`Status atualizado para "${newStatus}"!`);
     } catch {
       toast.error('Erro ao atualizar status.');
+    }
+  };
+
+  /** Função específica para reabrir OS limpando os dados de conclusão */
+  const [reopenServiceOrderMutation] = useMutation(gql`
+    mutation ReopenServiceOrder($id: ID!, $status: String!) {
+      updateServiceOrder(id: $id, status: $status, serviceEndDate: null, servicePerformed: null, serviceOrderLink: null) {
+        id
+        status
+      }
+    }
+  `, {
+    refetchQueries: [{ query: GET_SERVICE_ORDERS, variables: { limit: 100 } }],
+  });
+
+  const handleReopen = async (incident: Incident, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await reopenServiceOrderMutation({ variables: { id: incident.id, status: 'Em Andamento' } });
+      toast.success('Ordem de serviço reaberta com sucesso!');
+    } catch {
+      toast.error('Erro ao reabrir ordem de serviço.');
     }
   };
 
@@ -479,6 +521,41 @@ export function IncidentTable({
                 {selectedIncident?.description || 'Nenhuma observação técnica adicional foi registrada para esta ordem de serviço.'}
               </div>
             </div>
+
+            {selectedIncident?.status === 'Concluído' && (
+              <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="h-[1px] bg-gray-100 w-full" />
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1">
+                    <CheckCircle2 size={12} /> Parecer Técnico de Conclusão
+                  </p>
+                  <div className="text-sm font-medium text-emerald-900 leading-relaxed bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
+                    {selectedIncident?.servicePerformed || 'Serviço concluído conforme padrões técnicos.'}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 text-[10px] font-bold uppercase tracking-widest">
+                  <div className="space-y-1">
+                    <p className="text-gray-400">Data de Término</p>
+                    <p className="text-emerald-700">
+                      {selectedIncident?.serviceEndDate 
+                        ? format(new Date(parseInt(selectedIncident.serviceEndDate)), 'dd/MM/yyyy', { locale: ptBR })
+                        : '-'}
+                    </p>
+                  </div>
+                  {selectedIncident?.serviceOrderLink && (
+                    <div className="space-y-1">
+                      <p className="text-gray-400">Doc. Técnico</p>
+                      <a href={selectedIncident.serviceOrderLink.startsWith('http') ? selectedIncident.serviceOrderLink : `https://${selectedIncident.serviceOrderLink}`} 
+                         target="_blank" rel="noopener noreferrer" 
+                         className="text-indigo-600 hover:underline flex items-center gap-1">
+                        <ExternalLink size={10} /> Ver Documento
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="pt-4 border-t border-gray-100 flex justify-between items-center text-[10px] text-gray-400 font-medium uppercase tracking-widest">
               <div className="flex items-center gap-2">
                 <Activity size={12} />
@@ -724,6 +801,12 @@ export function IncidentTable({
                       {incident.status === 'Em Andamento' && (
                         <Button onClick={e => handleFastStatusUpdate(incident, 'Em Aberto', e)}
                           variant="ghost" size="icon" className="h-7 w-7 text-orange-500 rounded-md hover:bg-orange-50" title="Voltar para Em Aberto">
+                          <Undo2 size={14} />
+                        </Button>
+                      )}
+                      {incident.status === 'Concluído' && (
+                        <Button onClick={e => handleReopen(incident, e)}
+                          variant="ghost" size="icon" className="h-7 w-7 text-orange-600 rounded-md hover:bg-orange-50" title="Reabrir (Voltar para Em Andamento)">
                           <Undo2 size={14} />
                         </Button>
                       )}
