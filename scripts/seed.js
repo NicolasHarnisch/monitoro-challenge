@@ -1,14 +1,7 @@
 /**
  * Script de seed do banco de dados.
- *
- * Popula as tabelas Machine e ServiceOrder com dados de exemplo.
- * A estrutura de máquinas e o conceito de "service order" vinculada a uma máquina
- * foram portados do projeto de referência:
- *   exemplos-para-desafio-ERP/BACKEND/machine/machine.service.ts
- *   exemplos-para-desafio-ERP/BACKEND/service-order/service-order.service.ts
- *
- * Para rodar: node scripts/seed.js
  */
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { PrismaClient } = require('@prisma/client')
 
 const prisma = new PrismaClient()
@@ -21,18 +14,15 @@ async function main() {
   await prisma.machine.deleteMany()
   console.log('🗑️  Dados antigos removidos.')
 
-  // ──────────────────────────────────────────────────────────────────────────────
   // MÁQUINAS
-  // Equivalente ao create() do MachineService do projeto de referência.
-  // ──────────────────────────────────────────────────────────────────────────────
   const machineData = [
-    { code: 'MAQ-001', name: 'Corrente de Rebarba 21',      department: 'Produção' },
-    { code: 'MAQ-002', name: 'Maromba 12',                  department: 'Produção' },
-    { code: 'MAQ-003', name: 'Enchedeira Volvo L60',         department: 'Logística' },
-    { code: 'MAQ-004', name: 'Gerador G1',                   department: 'Utilidades' },
-    { code: 'MAQ-005', name: 'Enchedeira Case 721',          department: 'Logística' },
-    { code: 'MAQ-006', name: 'Esteira 5',                    department: 'Produção' },
-    { code: 'MAQ-007', name: 'Caminhão Volvo VM-330/2',      department: 'Logística' },
+    { code: 'MAQ-001', name: 'Corrente de Rebarba 21', department: 'Produção' },
+    { code: 'MAQ-002', name: 'Maromba 12', department: 'Produção' },
+    { code: 'MAQ-003', name: 'Enchedeira Volvo L60', department: 'Logística' },
+    { code: 'MAQ-004', name: 'Gerador G1', department: 'Utilidades' },
+    { code: 'MAQ-005', name: 'Enchedeira Case 721', department: 'Logística' },
+    { code: 'MAQ-006', name: 'Esteira 5', department: 'Produção' },
+    { code: 'MAQ-007', name: 'Caminhão Volvo VM-330/2', department: 'Logística' },
   ]
 
   const machines = []
@@ -42,11 +32,7 @@ async function main() {
     console.log(`  ✔ Máquina criada: ${machine.name} [${machine.code}]`)
   }
 
-  // ──────────────────────────────────────────────────────────────────────────────
   // ORDENS DE SERVIÇO
-  // Equivalente ao create() do ServiceOrderService do projeto de referência,
-  // que usa machine: { connect: { id: input.machineId } }.
-  // ──────────────────────────────────────────────────────────────────────────────
   const reasons = [
     'Temperatura elevada do motor',
     'Vazamento de óleo hidráulico',
@@ -59,12 +45,11 @@ async function main() {
   ]
 
   const ordersToCreate = [];
-  
-  // Vamos gerar 60 ordens de serviço espalhadas pelos últimos 120 dias
+
   for (let i = 0; i < 60; i++) {
     const randomMachine = machines[Math.floor(Math.random() * machines.length)];
     const daysAgo = Math.floor(Math.random() * 120);
-    
+
     // Status e tempo
     const statusRand = Math.random();
     let status = 'Concluído';
@@ -79,7 +64,7 @@ async function main() {
     const typeRand = Math.random();
     let type = 'Corretiva';
     let severity = 'Média';
-    
+
     if (typeRand > 0.6) {
       type = 'Preventiva';
       severity = 'Baixa';
@@ -115,14 +100,14 @@ async function main() {
 
     await prisma.serviceOrder.create({
       data: {
-        machine:          { connect: { id: o.machine.id } },
+        machine: { connect: { id: o.machine.id } },
         reason,
-        type:             o.type,
+        type: o.type,
         isMachineStopped: o.isMachineStopped,
-        description:      `${reason} — verificação e correção necessária. Prioridade ${o.severity.toLowerCase()}.`,
+        description: `${reason} — verificação e correção necessária. Prioridade ${o.severity.toLowerCase()}.`,
         servicePerformed: o.status === 'Concluído' ? 'Serviço executado e equipamento liberado para operação após testes mecânicos e elétricos.' : null,
-        severity:         o.severity,
-        status:           o.status,
+        severity: o.severity,
+        status: o.status,
         createdAt,
         serviceEndDate,
       }

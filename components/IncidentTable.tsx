@@ -17,7 +17,7 @@ import {
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
 import { GET_SERVICE_ORDERS, DELETE_SERVICE_ORDER, UPDATE_STATUS, COMPLETE_SERVICE_ORDER } from '@/lib/graphql-queries';
@@ -89,7 +89,6 @@ export function IncidentTable({
   const incidents = data?.serviceOrders ?? [];
 
   // --- Helpers ---
-  /** Extrai o departamento da máquina relacionada */
   const getDepartment = (incident: Incident | null): string => {
     if (!incident) return 'N/A';
     if (incident.machine?.department) return incident.machine.department;
@@ -99,7 +98,7 @@ export function IncidentTable({
   /** Retorna o nome de exibição da máquina */
   const getMachineName = (incident: Incident | null): string => {
     if (!incident) return '';
-    return incident.machine?.name ?? (incident as any).machineName ?? '';
+    return incident.machine?.name ?? (incident as Incident & { machineName?: string }).machineName ?? '';
   };
 
   /** Retorna o código da máquina relacionada */
@@ -126,7 +125,7 @@ export function IncidentTable({
       inc.reason.toLowerCase().includes(term) ||
       inc.id.toLowerCase().includes(term);
 
-    const incType = inc.type ?? (inc as any).typeOfOccurrence ?? '';
+    const incType = inc.type ?? (inc as Incident & { typeOfOccurrence?: string }).typeOfOccurrence ?? '';
     const typeMatch = activeTypes.length === 0 ||
       activeTypes.some(t => t.toLowerCase() === incType.toLowerCase());
 
@@ -141,7 +140,7 @@ export function IncidentTable({
     let severityMatch = true;
     if (severityFilter !== 'Todas') {
       const sev = inc.severity.toLowerCase();
-      if (severityFilter === 'Alta'  && sev !== 'alta')                       severityMatch = false;
+      if (severityFilter === 'Alta'  && sev !== 'alta')                      severityMatch = false;
       if (severityFilter === 'Média' && sev !== 'média' && sev !== 'media')   severityMatch = false;
     }
 
@@ -294,7 +293,7 @@ export function IncidentTable({
       escapeField(getMachineName(i)),
       escapeField(getDepartment(i)),
       escapeField(i.reason),
-      escapeField(i.type ?? (i as any).typeOfOccurrence ?? ''),
+      escapeField(i.type ?? (i as Incident & { typeOfOccurrence?: string }).typeOfOccurrence ?? ''),
       escapeField(i.status),
       escapeField(i.severity),
       escapeField(i.isMachineStopped ? 'Sim' : 'Não'),
@@ -366,11 +365,9 @@ export function IncidentTable({
 
       <div id="main-layout" className="w-full flex-1 flex flex-col gap-6 relative">
 
-
-
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent showCloseButton={false} className="w-[95vw] sm:max-w-[550px] border-0 rounded-[20px] p-0 overflow-hidden bg-white shadow-2xl flex flex-col max-h-[95vh]">
-          <div className="bg-[#382b22] px-6 sm:px-8 py-5 sm:py-6 text-white relative flex flex-col justify-center min-h-[90px] flex-shrink-0">
+        <DialogContent showCloseButton={false} className="w-[95vw] sm:max-w-137.5 border-0 rounded-[20px] p-0 overflow-hidden bg-white shadow-2xl flex flex-col max-h-[95vh]">
+          <div className="bg-[#382b22] px-6 sm:px-8 py-5 sm:py-6 text-white relative flex flex-col justify-center min-h-22.5 shrink-0">
             <button onClick={() => setIsDetailsOpen(false)} className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors">
               <X size={20} />
             </button>
@@ -409,7 +406,7 @@ export function IncidentTable({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tipo de Serviço</p>
-                <div className="pt-1"><TypeBadge type={selectedIncident?.type ?? (selectedIncident as any)?.typeOfOccurrence ?? ''} /></div>
+                <div className="pt-1"><TypeBadge type={selectedIncident?.type ?? (selectedIncident as Incident & { typeOfOccurrence?: string })?.typeOfOccurrence ?? ''} /></div>
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Severidade</p>
@@ -424,14 +421,14 @@ export function IncidentTable({
             </div>
             <div className="space-y-2">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Descrição Técnica</p>
-              <div className="text-sm text-gray-600 leading-relaxed bg-gray-50/50 p-4 rounded-xl border border-dashed border-gray-200 min-h-[100px] whitespace-pre-wrap">
+              <div className="text-sm text-gray-600 leading-relaxed bg-gray-50/50 p-4 rounded-xl border border-dashed border-gray-200 min-h-25 whitespace-pre-wrap">
                 {selectedIncident?.description || 'Nenhuma observação técnica adicional foi registrada para esta ordem de serviço.'}
               </div>
             </div>
 
             {selectedIncident?.status === 'Concluído' && (
               <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="h-[1px] bg-gray-100 w-full" />
+                <div className="h-px bg-gray-100 w-full" />
                 <div className="space-y-2">
                   <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1">
                     <CheckCircle2 size={12} /> Parecer Técnico de Conclusão
@@ -488,7 +485,7 @@ export function IncidentTable({
       </Dialog>
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[700px] p-0 border-0 overflow-y-auto rounded-[16px] gap-0 max-h-[95vh] custom-scrollbar">
+        <DialogContent className="w-[95vw] sm:max-w-175 p-0 border-0 overflow-y-auto rounded-[16px] gap-0 max-h-[95vh] custom-scrollbar">
           <IncidentForm
             initialData={selectedIncident}
             onSuccess={() => setIsEditOpen(false)}
@@ -498,7 +495,7 @@ export function IncidentTable({
       </Dialog>
 
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent className="w-[90vw] sm:max-w-[400px] border-0 rounded-[16px] text-center p-6 sm:p-8">
+        <DialogContent className="w-[90vw] sm:max-w-100 border-0 rounded-[16px] text-center p-6 sm:p-8">
           <div className="mx-auto w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mb-6">
             <Trash2 size={32} />
           </div>
@@ -514,7 +511,7 @@ export function IncidentTable({
       </Dialog>
 
       <Dialog open={isCompleteOpen} onOpenChange={setIsCompleteOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[450px] border-0 rounded-[16px] p-6 sm:p-8 max-h-[95vh] overflow-y-auto custom-scrollbar">
+        <DialogContent className="w-[95vw] sm:max-w-112.5 border-0 rounded-[16px] p-6 sm:p-8 max-h-[95vh] overflow-y-auto custom-scrollbar">
           <DialogTitle className="text-xl font-bold mb-4">Concluir Ordem de Serviço</DialogTitle>
           <div className="space-y-4">
             <div>
@@ -595,7 +592,7 @@ export function IncidentTable({
               <TableHead className="py-3 px-4 h-auto w-[25%] md:w-[20%]">
                 <span className="text-[11px] font-bold text-gray-800 uppercase tracking-wider">Equipamento</span>
               </TableHead>
-              <TableHead className="py-3 px-4 h-auto min-w-[150px]">
+              <TableHead className="py-3 px-4 h-auto min-w-37.5">
                 <span className="text-[11px] font-bold text-gray-800 uppercase tracking-wider">Tipo & Severidade</span>
               </TableHead>
               <TableHead className="py-3 px-4 h-auto w-[20%]">
@@ -646,14 +643,14 @@ export function IncidentTable({
                 <TableCell className="px-4 py-3">
                   <div className="font-semibold text-gray-900 text-sm flex items-center gap-2">
                     <span
-                      className={`truncate max-w-[160px] cursor-pointer hover:underline ${machineFilter === getMachineName(incident) ? 'text-orange-600' : ''}`}
+                      className={`truncate max-w-40 cursor-pointer hover:underline ${machineFilter === getMachineName(incident) ? 'text-orange-600' : ''}`}
                       title={`${getMachineName(incident)} (${getMachineCode(incident)}) — Clique para filtrar`}
                       onClick={e => { e.stopPropagation(); setMachineFilter(machineFilter === getMachineName(incident) ? null : getMachineName(incident)); }}
                     >
                       {getMachineName(incident)}
                     </span>
                     {incident.isMachineStopped && (
-                      <span title="Máquina Parada!" className="flex-shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-red-600">
+                      <span title="Máquina Parada!" className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-red-600">
                         <AlertTriangle size={12} strokeWidth={3} />
                       </span>
                     )}
@@ -667,12 +664,12 @@ export function IncidentTable({
 
                 <TableCell className="px-4 py-3">
                   <div className="flex flex-row items-center gap-2 flex-nowrap">
-                    <TypeBadge type={incident.type ?? (incident as any).typeOfOccurrence ?? ''} />
+                    <TypeBadge type={incident.type ?? (incident as Incident & { typeOfOccurrence?: string }).typeOfOccurrence ?? ''} />
                     <SeverityBadge severity={incident.severity || 'Média'} />
                   </div>
                 </TableCell>
 
-                <TableCell className="px-4 py-3 max-w-[250px]">
+                <TableCell className="px-4 py-3 max-w-62.5">
                   <div className="text-sm text-gray-700 truncate" title={incident.reason}>{incident.reason}</div>
                 </TableCell>
 
@@ -699,7 +696,7 @@ export function IncidentTable({
 
                 <TableCell className="px-4 py-3 print:hidden">
                   <div className="flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity">
-                    <div className="flex items-center justify-end gap-1 w-[72px]">
+                    <div className="flex items-center justify-end gap-1 w-18">
                       {/* Botão Concluir OS — aparece apenas para OS em aberto */}
                       {!incident.serviceEndDate && incident.status !== 'Concluído' && (
                         <Button onClick={e => handleOpenComplete(incident, e)}
@@ -734,9 +731,9 @@ export function IncidentTable({
                       )}
                     </div>
 
-                    <div className="w-[1px] h-4 bg-gray-200 mx-2" />
+                    <div className="w-px h-4 bg-gray-200 mx-2" />
 
-                    <div className="flex items-center justify-start gap-1 w-[120px]">
+                    <div className="flex items-center justify-start gap-1 w-30">
                       <Button onClick={e => { e.stopPropagation(); handlePrint(incident); }}
                         variant="ghost" size="icon" className="h-7 w-7 text-gray-400 rounded-md hover:bg-gray-100 hover:text-gray-900" title="Imprimir">
                         <Printer size={14} />
@@ -809,7 +806,7 @@ export function IncidentTable({
               </div>
               <div className="border-l-4 border-gray-100 pl-4">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Tipo de Manutenção</p>
-                <p className="text-lg uppercase font-bold text-[#382b22]">{selectedIncident.type ?? (selectedIncident as any).typeOfOccurrence}</p>
+                <p className="text-lg uppercase font-bold text-[#382b22]">{selectedIncident.type ?? (selectedIncident as Incident & { typeOfOccurrence?: string }).typeOfOccurrence}</p>
               </div>
               <div className="border-l-4 border-gray-100 pl-4">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Severidade</p>

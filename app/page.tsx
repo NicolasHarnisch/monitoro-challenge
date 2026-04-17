@@ -37,7 +37,7 @@ export default function Home() {
               <Plus size={18} className="mr-2" />
               Nova Ordem de Serviço
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[700px] p-0 border-0 overflow-hidden rounded-[16px] gap-0">
+            <DialogContent className="sm:max-w-175 p-0 border-0 overflow-hidden rounded-[16px] gap-0">
               <IncidentForm onSuccess={() => setIsModalOpen(false)} onCancel={() => setIsModalOpen(false)} />
             </DialogContent>
           </Dialog>
@@ -74,7 +74,7 @@ export default function Home() {
               );
             })}
 
-            <div className="w-[160px] flex-none">
+            <div className="w-40 flex-none">
               <Select
                 value={statusFilter}
                 onValueChange={val => {

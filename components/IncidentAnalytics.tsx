@@ -4,20 +4,11 @@ import React, { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import { format, subMonths, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { ServiceOrder } from '@/types/service-order';
 
-interface Incident {
-  id: string;
-  createdAt: string;
-  severity: string;
-  machine?: {
-    name: string;
-  };
-  machineName?: string;
-}
+const getMachineName = (i: ServiceOrder) => i.machine?.name ?? (i as ServiceOrder & { machineName?: string }).machineName ?? 'Desconhecida';
 
-const getMachineName = (i: any) => i.machine?.name ?? i.machineName ?? 'Desconhecida';
-
-export function IncidentAnalytics({ incidents }: { incidents: Incident[] }) {
+export function IncidentAnalytics({ incidents }: { incidents: ServiceOrder[] }) {
   // Processar dados para as 2 visualizações
   const data = useMemo(() => {
     // 1. Considerar apenas os últimos 3 meses
@@ -56,9 +47,9 @@ export function IncidentAnalytics({ incidents }: { incidents: Incident[] }) {
       .map(([date, count]) => ({ date, count }));
 
     const severityData = Array.from(severityMap.values())
-      .sort((a, b) => (b.Alta + b.Média + b.Baixa) - (a.Alta + a.Média + a.Baixa)) // Sort by total
+      .sort((a, b) => (b.Alta + b.Média + b.Baixa) - (a.Alta + a.Média + a.Baixa))
       .reverse()
-      .slice(0, 5); // Top 5 machines
+      .slice(0, 5);
 
     return { volumeData, severityData };
   }, [incidents]);
@@ -73,7 +64,7 @@ export function IncidentAnalytics({ incidents }: { incidents: Incident[] }) {
           <h3 className="text-lg font-bold text-gray-900 mb-1">Volume de Ocorrências</h3>
           <p className="text-sm text-gray-500 font-medium">Evolução do registro de ordens nos últimos 3 meses</p>
         </div>
-        <div className="h-[280px] w-full">
+        <div className="h-70 w-full">
           {data.volumeData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data.volumeData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -126,7 +117,7 @@ export function IncidentAnalytics({ incidents }: { incidents: Incident[] }) {
           <h3 className="text-lg font-bold text-gray-900 mb-1">Maiores Ocorrências</h3>
           <p className="text-sm text-gray-500 font-medium">Top 5 equipamentos agrupados por severidade</p>
         </div>
-        <div className="h-[280px] w-full">
+        <div className="h-70 w-full">
           {data.severityData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart 
@@ -175,4 +166,3 @@ export function IncidentAnalytics({ incidents }: { incidents: Incident[] }) {
     </div>
   );
 }
-

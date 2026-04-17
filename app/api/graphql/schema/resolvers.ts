@@ -106,7 +106,7 @@ export const resolvers = {
         serviceOrderLink?: string | null;
       }
     ) => {
-      const data: any = { ...updates };
+      const data: Record<string, unknown> = { ...updates };
       
       if (machineName) {
         const machine = await getOrCreateMachine(machineName);

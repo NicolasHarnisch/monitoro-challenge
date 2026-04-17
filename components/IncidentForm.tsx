@@ -4,7 +4,7 @@
  * Formulário de criação e edição de Ordens de Serviço.
  */
 
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useMutation, useQuery } from '@apollo/client/react';
@@ -25,11 +25,10 @@ import {
   CREATE_SERVICE_ORDER,
   UPDATE_SERVICE_ORDER,
 } from '@/lib/graphql-queries';
-import { Machine } from '@/types/service-order';
+import { Machine, ServiceOrder } from '@/types/service-order';
 
 /**
  * Schema de validação — espelha os campos obrigatórios do CreateServiceOrderInput
- * do projeto de referência (machineId, reason, type, isMachineStopped, description).
  */
 const serviceOrderSchema = z.object({
   machineName:      z.string().min(1, 'Digite o nome da máquina.'),
@@ -46,12 +45,11 @@ type ServiceOrderFormData = z.infer<typeof serviceOrderSchema>;
 interface IncidentFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
-  initialData?: any;
+  initialData?: ServiceOrder | null;
 }
 
 export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormProps) {
   // Busca as máquinas cadastradas para popular o select.
-  // Equivalente ao uso de MachineService.findAll() no projeto de referência.
   const { data: machinesData } = useQuery<{ machines: Machine[] }>(GET_MACHINES);
   const machines = machinesData?.machines ?? [];
 
@@ -67,7 +65,7 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
 
   const loading = isCreating || isUpdating;
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ServiceOrderFormData>({
+  const { register, handleSubmit, control, formState: { errors } } = useForm<ServiceOrderFormData>({
     resolver: zodResolver(serviceOrderSchema),
     defaultValues: initialData ? {
       machineName:      initialData.machine ? `${initialData.machine.name} (${initialData.machine.code})` : '',
@@ -149,16 +147,22 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
 
           <div className="space-y-2">
             <Label className="text-xs font-semibold text-gray-800">Tipo de Serviço *</Label>
-            <Select onValueChange={val => setValue('type', val || '')} value={watch('type') || ''}>
-              <SelectTrigger className={`rounded-[8px] h-10 ${errors.type ? 'border-red-500' : 'border-gray-200'}`}>
-                <SelectValue placeholder="Selecione o tipo de serviço" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Preventiva">Preventiva</SelectItem>
-                <SelectItem value="Corretiva">Corretiva</SelectItem>
-                <SelectItem value="Planejada">Planejada</SelectItem>
-              </SelectContent>
-            </Select>
+            <Controller
+              control={control}
+              name="type"
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value || ''}>
+                  <SelectTrigger className={`rounded-[8px] h-10 ${errors.type ? 'border-red-500' : 'border-gray-200'}`}>
+                    <SelectValue placeholder="Selecione o tipo de serviço" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Preventiva">Preventiva</SelectItem>
+                    <SelectItem value="Corretiva">Corretiva</SelectItem>
+                    <SelectItem value="Planejada">Planejada</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
             {errors.type && (
               <span className="bg-black text-white px-2 py-1 text-xs rounded shadow-sm inline-block">
                 {errors.type.message}
@@ -168,11 +172,17 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
 
           {/* isMachineStopped — campo boolean obrigatório do CreateServiceOrderInput */}
           <div className="flex items-center space-x-2 md:mt-8">
-            <Checkbox
-              id="machineStopped"
-              checked={watch('isMachineStopped')}
-              onCheckedChange={checked => setValue('isMachineStopped', checked === true)}
-              className="border-gray-300 rounded-[4px] data-[state=checked]:bg-[#382b22] data-[state=checked]:border-[#382b22]"
+            <Controller
+              control={control}
+              name="isMachineStopped"
+              render={({ field }) => (
+                <Checkbox
+                  id="machineStopped"
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  className="border-gray-300 rounded-lg data-[state=checked]:bg-[#382b22] data-[state=checked]:border-[#382b22]"
+                />
+              )}
             />
             <Label htmlFor="machineStopped" className="text-sm font-medium text-gray-700 cursor-pointer">
               Máquina foi parada?
@@ -185,7 +195,7 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
           <Textarea
             {...register('description')}
             placeholder="Descreva detalhadamente o serviço a ser realizado"
-            className={`min-h-[80px] rounded-[8px] resize-none ${errors.description ? 'border-red-500' : 'border-gray-200'}`}
+            className={`min-h-20 rounded-[8px] resize-none ${errors.description ? 'border-red-500' : 'border-gray-200'}`}
           />
           {errors.description && (
             <span className="bg-[#1f2937] text-white px-2 py-1 text-xs rounded shadow-sm inline-block">
@@ -197,31 +207,43 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label className="text-xs font-semibold text-gray-800">Severidade *</Label>
-            <Select onValueChange={val => setValue('severity', val || '')} value={watch('severity') || ''}>
-              <SelectTrigger className={`rounded-[8px] h-10 w-full ${errors.severity ? 'border-red-500' : 'border-gray-200'}`}>
-                <SelectValue placeholder="Severidade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Baixa">Baixa</SelectItem>
-                <SelectItem value="Média">Média</SelectItem>
-                <SelectItem value="Alta">Alta</SelectItem>
-              </SelectContent>
-            </Select>
+            <Controller
+              control={control}
+              name="severity"
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value || ''}>
+                  <SelectTrigger className={`rounded-[8px] h-10 w-full ${errors.severity ? 'border-red-500' : 'border-gray-200'}`}>
+                    <SelectValue placeholder="Severidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Baixa">Baixa</SelectItem>
+                    <SelectItem value="Média">Média</SelectItem>
+                    <SelectItem value="Alta">Alta</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
 
           {initialData && (
             <div className="space-y-2">
               <Label className="text-xs font-semibold text-gray-800">Status *</Label>
-              <Select onValueChange={val => setValue('status', val || '')} value={watch('status') || ''}>
-                <SelectTrigger className="rounded-[8px] h-10 w-full border-gray-200">
-                  <SelectValue placeholder="Selecione o Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Em Aberto">Em Aberto</SelectItem>
-                  <SelectItem value="Em Andamento">Em Andamento</SelectItem>
-                  <SelectItem value="Concluído">Concluído</SelectItem>
-                </SelectContent>
-              </Select>
+              <Controller
+                control={control}
+                name="status"
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <SelectTrigger className="rounded-[8px] h-10 w-full border-gray-200">
+                      <SelectValue placeholder="Selecione o Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Em Aberto">Em Aberto</SelectItem>
+                      <SelectItem value="Em Andamento">Em Andamento</SelectItem>
+                      <SelectItem value="Concluído">Concluído</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
           )}
         </div>
@@ -238,7 +260,7 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
           <Button
             type="submit"
             disabled={loading}
-            className="bg-[#382b22] hover:bg-[#2c211a] text-white rounded-[8px] font-medium min-w-[160px]"
+            className="bg-[#382b22] hover:bg-[#2c211a] text-white rounded-[8px] font-medium min-w-40"
           >
             {loading ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
             {initialData ? 'Salvar Alterações' : 'Criar Ordem de Serviço'}
