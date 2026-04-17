@@ -108,4 +108,4 @@ Algumas funcionalidades que planejo implementar:
 
 ---
 
-Desenvolvido por Nicolás · [LinkedIn](https://linkedin.com/in/seu-perfil) · [GitHub](https://github.com/seu-usuario)
+Desenvolvido por Nicolás · [LinkedIn](https://www.linkedin.com/in/nicolasharnisch/) · [GitHub](https://github.com/NicolasHarnisch)
