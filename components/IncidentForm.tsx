@@ -1,264 +1,224 @@
 'use client';
 
+/** Formulário reutilizável para criar e editar ordens de serviço */
+
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useMutation } from '@apollo/client/react';
-import { gql } from '@apollo/client';
-import { toast } from 'react-hot-toast';
-import { Loader2, Wrench, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+
+import { GET_LAST_INCIDENTS, CREATE_INCIDENT, UPDATE_INCIDENT } from '@/lib/graphql-queries';
 
 const incidentSchema = z.object({
-  machineName: z.string().min(1, 'Selecione uma máquina'),
-  typeOfOccurrence: z.string().min(1, 'Selecione o tipo de ocorrência'),
-  description: z
-    .string()
-    .min(10, 'A descrição deve ter no mínimo 10 caracteres'),
-  severity: z.string().min(1, 'Defina a severidade'),
+  machineName:      z.string().min(1, 'Preencha este campo.'),
+  reason:           z.string().min(1, 'Preencha este campo.'),
+  typeOfOccurrence: z.string().min(1, 'Preencha este campo.'),
+  isMachineStopped: z.boolean(),
+  description:      z.string().min(1, 'Preencha este campo.'),
+  severity:         z.string().min(1, 'Preencha este campo.'),
+  status:           z.string().optional(),
 });
 
 type IncidentFormData = z.infer<typeof incidentSchema>;
 
-const CREATE_INCIDENT = gql`
-  mutation CreateIncident(
-    $machineName: String!
-    $typeOfOccurrence: String!
-    $description: String!
-    $severity: String!
-  ) {
-    createIncident(
-      machineName: $machineName
-      typeOfOccurrence: $typeOfOccurrence
-      description: $description
-      severity: $severity
-    ) {
-      id
-      status
-      createdAt
-    }
-  }
-`;
+interface IncidentFormProps {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+  initialData?: any;
+}
 
-const GET_LAST_INCIDENTS = gql`
-  query GetLastIncidents($limit: Int) {
-    lastIncidents(limit: $limit) {
-      id
-      description
-      machineName
-      severity
-      status
-      typeOfOccurrence
-      createdAt
-    }
-  }
-`;
-
-const MACHINES = [
-  'Corrente de rebarba (21)',
-  'Torno CNC 01',
-  'Maromba 12',
-  'Enchedeira Volvo L60',
-  'Prensa Hidráulica 03',
-  'Compressor Atlas 05',
-  'Esteira Transportadora 02',
-];
-
-const SEVERITIES = [
-  { value: 'Baixa', color: 'peer-checked:bg-emerald-100 peer-checked:border-emerald-500 peer-checked:text-emerald-800', icon: '🟢' },
-  { value: 'Média', color: 'peer-checked:bg-amber-100 peer-checked:border-amber-500 peer-checked:text-amber-800', icon: '🟡' },
-  { value: 'Alta', color: 'peer-checked:bg-red-100 peer-checked:border-red-500 peer-checked:text-red-800', icon: '🔴' },
-];
-
-export function IncidentForm({ onSuccess }: { onSuccess?: () => void }) {
-  const [createIncident, { loading }] = useMutation(CREATE_INCIDENT, {
-    refetchQueries: [{ query: GET_LAST_INCIDENTS, variables: { limit: 5 } }],
+export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormProps) {
+  const [createIncident, { loading: isCreating }] = useMutation(CREATE_INCIDENT, {
+    refetchQueries: [{ query: GET_LAST_INCIDENTS, variables: { limit: 100 } }],
     awaitRefetchQueries: true,
   });
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<IncidentFormData>({
+  const [updateIncident, { loading: isUpdating }] = useMutation(UPDATE_INCIDENT, {
+    refetchQueries: [{ query: GET_LAST_INCIDENTS, variables: { limit: 100 } }],
+    awaitRefetchQueries: true,
+  });
+
+  const loading = isCreating || isUpdating;
+
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<IncidentFormData>({
     resolver: zodResolver(incidentSchema),
-    defaultValues: {
+    defaultValues: initialData ? {
+      machineName:      initialData.machineName,
+      reason:           initialData.reason,
+      typeOfOccurrence: initialData.typeOfOccurrence,
+      isMachineStopped: initialData.isMachineStopped,
+      description:      initialData.description,
+      severity:         initialData.severity,
+      status:           initialData.status,
+    } : {
+      isMachineStopped: false,
       severity: 'Média',
     },
   });
 
   const onSubmit = async (data: IncidentFormData) => {
     try {
-      await createIncident({ variables: data });
-      toast.success('✅ Incidente registrado com sucesso!', {
-        style: {
-          background: '#1a1a2e',
-          color: '#fff',
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: '12px',
-          fontWeight: '600',
-        },
-      });
-      reset();
+      if (initialData?.id) {
+        await updateIncident({ variables: { id: initialData.id, ...data } });
+        toast.success('Ordem de serviço atualizada com sucesso!');
+      } else {
+        await createIncident({ variables: data });
+        toast.success('Ordem de serviço criada com sucesso!');
+      }
       if (onSuccess) onSuccess();
     } catch (error) {
-      toast.error('❌ Erro ao registrar ocorrência.', {
-        style: {
-          background: '#1a1a2e',
-          color: '#fff',
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: '12px',
-          fontWeight: '600',
-        },
-      });
+      toast.error('Erro ao salvar ordem de serviço.');
       console.error(error);
     }
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
-      {/* Header do Formulário */}
-      <div className="p-8 pb-6 bg-gradient-to-r from-[#1a1a2e] to-[#16213e]">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="bg-white/10 p-2 rounded-xl">
-            <Wrench className="text-white" size={18} />
+    <>
+      <DialogHeader className="p-6 pb-2">
+        <DialogTitle className="text-xl font-bold text-gray-900">
+          {initialData ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço'}
+        </DialogTitle>
+        <DialogDescription className="hidden">Preencha os dados do serviço.</DialogDescription>
+      </DialogHeader>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="p-6 pt-4 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-800">Máquina *</Label>
+            <Input
+              {...register('machineName')}
+              placeholder="Digite o nome da máquina"
+              className={`rounded-[8px] h-10 ${errors.machineName ? 'border-red-500' : 'border-gray-200'}`}
+            />
+            {errors.machineName && (
+              <span className="bg-black text-white px-2 py-1 text-xs rounded shadow-sm inline-block">
+                {errors.machineName.message}
+              </span>
+            )}
           </div>
-          <span className="text-white/60 text-xs font-black uppercase tracking-widest">Nova Ocorrência</span>
-        </div>
-        <h2 className="text-2xl font-black text-white tracking-tight">
-          Registrar Incidente
-        </h2>
-      </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-6">
-        {/* Máquina */}
-        <div>
-          <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-2">
-            Máquina <span className="text-red-400">*</span>
-          </label>
-          <select
-            {...register('machineName')}
-            className={`w-full p-3.5 bg-gray-50 border-2 rounded-xl font-semibold text-gray-800 focus:outline-none transition-all ${
-              errors.machineName
-                ? 'border-red-400 focus:border-red-500'
-                : 'border-gray-100 focus:border-[#1a1a2e]'
-            }`}
-          >
-            <option value="">Selecione uma máquina...</option>
-            {MACHINES.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-          {errors.machineName && (
-            <p className="flex items-center gap-1 text-red-500 text-xs mt-1.5 font-semibold">
-              <AlertTriangle size={12} /> {errors.machineName.message}
-            </p>
-          )}
-        </div>
-
-        {/* Tipo de Ocorrência */}
-        <div>
-          <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-2">
-            Tipo de Ocorrência <span className="text-red-400">*</span>
-          </label>
-          <select
-            {...register('typeOfOccurrence')}
-            className={`w-full p-3.5 bg-gray-50 border-2 rounded-xl font-semibold text-gray-800 focus:outline-none transition-all ${
-              errors.typeOfOccurrence
-                ? 'border-red-400 focus:border-red-500'
-                : 'border-gray-100 focus:border-[#1a1a2e]'
-            }`}
-          >
-            <option value="">Selecione o tipo...</option>
-            <option value="Preventiva">Preventiva</option>
-            <option value="Corretiva">Corretiva</option>
-            <option value="Planejada">Planejada</option>
-          </select>
-          {errors.typeOfOccurrence && (
-            <p className="flex items-center gap-1 text-red-500 text-xs mt-1.5 font-semibold">
-              <AlertTriangle size={12} /> {errors.typeOfOccurrence.message}
-            </p>
-          )}
-        </div>
-
-        {/* Severidade */}
-        <div>
-          <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-3">
-            Severidade <span className="text-red-400">*</span>
-          </label>
-          <div className="flex gap-3">
-            {SEVERITIES.map(({ value, color, icon }) => (
-              <label key={value} className="flex-1 cursor-pointer">
-                <input
-                  type="radio"
-                  value={value}
-                  {...register('severity')}
-                  className="hidden peer"
-                />
-                <div className={`text-center p-3 rounded-xl border-2 border-gray-100 bg-gray-50 text-gray-500 font-black text-sm cursor-pointer transition-all ${color}`}>
-                  <span className="block text-lg mb-0.5">{icon}</span>
-                  {value}
-                </div>
-              </label>
-            ))}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-800">Motivo *</Label>
+            <Input
+              {...register('reason')}
+              placeholder="Digite o motivo da ordem de serviço"
+              className={`rounded-[8px] h-10 ${errors.reason ? 'border-red-500' : 'border-gray-200'}`}
+            />
+            {errors.reason && (
+              <span className="bg-black text-white px-2 py-1 text-xs rounded shadow-sm inline-block">
+                {errors.reason.message}
+              </span>
+            )}
           </div>
-          {errors.severity && (
-            <p className="flex items-center gap-1 text-red-500 text-xs mt-1.5 font-semibold">
-              <AlertTriangle size={12} /> {errors.severity.message}
-            </p>
-          )}
+
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-800">Tipo de Serviço *</Label>
+            <Select onValueChange={val => setValue('typeOfOccurrence', val || '')} defaultValue={watch('typeOfOccurrence') || undefined}>
+              <SelectTrigger className={`rounded-[8px] h-10 ${errors.typeOfOccurrence ? 'border-red-500' : 'border-gray-200'}`}>
+                <SelectValue placeholder="Selecione o tipo de serviço" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Preventiva">Preventiva</SelectItem>
+                <SelectItem value="Corretiva">Corretiva</SelectItem>
+                <SelectItem value="Planejada">Planejada</SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.typeOfOccurrence && (
+              <span className="bg-black text-white px-2 py-1 text-xs rounded shadow-sm inline-block">
+                {errors.typeOfOccurrence.message}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-2 md:mt-8">
+            <Checkbox
+              id="machineStopped"
+              checked={watch('isMachineStopped')}
+              onCheckedChange={checked => setValue('isMachineStopped', checked === true)}
+              className="border-gray-300 rounded-[4px] data-[state=checked]:bg-[#382b22] data-[state=checked]:border-[#382b22]"
+            />
+            <Label htmlFor="machineStopped" className="text-sm font-medium text-gray-700 cursor-pointer">
+              Máquina foi parada?
+            </Label>
+          </div>
         </div>
 
-        {/* Descrição */}
-        <div>
-          <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-2">
-            Descrição da Ocorrência <span className="text-red-400">*</span>
-          </label>
-          <textarea
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold text-gray-800">Descrição do Serviço *</Label>
+          <Textarea
             {...register('description')}
-            rows={4}
-            placeholder="Descreva detalhadamente o problema ou serviço a ser realizado..."
-            className={`w-full p-3.5 bg-gray-50 border-2 rounded-xl resize-none font-medium text-gray-800 placeholder-gray-300 focus:outline-none transition-all ${
-              errors.description
-                ? 'border-red-400 focus:border-red-500'
-                : 'border-gray-100 focus:border-[#1a1a2e]'
-            }`}
+            placeholder="Descreva detalhadamente o serviço a ser realizado"
+            className={`min-h-[80px] rounded-[8px] resize-none ${errors.description ? 'border-red-500' : 'border-gray-200'}`}
           />
           {errors.description && (
-            <p className="flex items-center gap-1 text-red-500 text-xs mt-1.5 font-semibold">
-              <AlertTriangle size={12} /> {errors.description.message}
-            </p>
+            <span className="bg-[#1f2937] text-white px-2 py-1 text-xs rounded shadow-sm inline-block">
+              {errors.description.message}
+            </span>
           )}
         </div>
 
-        {/* Botões */}
-        <div className="flex gap-3 pt-2">
-          <button
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-800">Severidade *</Label>
+            <Select onValueChange={val => setValue('severity', val || '')} defaultValue={watch('severity') || undefined}>
+              <SelectTrigger className={`rounded-[8px] h-10 w-full ${errors.severity ? 'border-red-500' : 'border-gray-200'}`}>
+                <SelectValue placeholder="Severidade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Baixa">Baixa</SelectItem>
+                <SelectItem value="Média">Média</SelectItem>
+                <SelectItem value="Alta">Alta</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {initialData && (
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-800">Status *</Label>
+              <Select onValueChange={val => setValue('status', val || '')} defaultValue={watch('status') || undefined}>
+                <SelectTrigger className="rounded-[8px] h-10 w-full border-gray-200">
+                  <SelectValue placeholder="Selecione o Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Em Aberto">Em Aberto</SelectItem>
+                  <SelectItem value="Em Andamento">Em Andamento</SelectItem>
+                  <SelectItem value="Concluído">Concluído</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3 pt-6">
+          <Button
             type="button"
-            onClick={() => reset()}
-            className="flex-1 px-5 py-3.5 rounded-xl font-black text-gray-400 hover:bg-gray-100 transition-all border-2 border-gray-100 text-sm"
+            variant="outline"
+            onClick={onCancel}
+            className="rounded-[8px] border-gray-200 text-gray-600 font-medium"
           >
-            Limpar
-          </button>
-          <button
+            Cancelar
+          </Button>
+          <Button
             type="submit"
             disabled={loading}
-            className="flex-1 px-5 py-3.5 bg-gradient-to-r from-[#1a1a2e] to-[#16213e] hover:from-[#16213e] hover:to-[#0f3460] text-white font-black rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 text-sm transform active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="bg-[#382b22] hover:bg-[#2c211a] text-white rounded-[8px] font-medium min-w-[160px]"
           >
-            {loading ? (
-              <>
-                <Loader2 className="animate-spin" size={16} />
-                Registrando...
-              </>
-            ) : (
-              <>
-                <CheckCircle2 size={16} />
-                Registrar Incidente
-              </>
-            )}
-          </button>
+            {loading ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
+            {initialData ? 'Salvar Alterações' : 'Criar Ordem de Serviço'}
+          </Button>
         </div>
       </form>
-    </div>
+    </>
   );
 }

@@ -1,12 +1,14 @@
 export const typeDefs = `#graphql
   type Incident {
-    id: ID!
-    description: String!
-    machineName: String!
-    severity: String!
-    status: String!
+    id:               ID!
+    machineName:      String!
+    reason:           String!
     typeOfOccurrence: String!
-    createdAt: String!
+    isMachineStopped: Boolean!
+    description:      String!
+    severity:         String!
+    status:           String!
+    createdAt:        String!
   }
 
   type Query {
@@ -15,10 +17,25 @@ export const typeDefs = `#graphql
 
   type Mutation {
     createIncident(
-      description: String!
-      machineName: String!
-      severity: String!
+      machineName:      String!
+      reason:           String!
       typeOfOccurrence: String!
+      isMachineStopped: Boolean!
+      description:      String!
+      severity:         String!
     ): Incident!
+
+    updateIncident(
+      id:               ID!
+      machineName:      String
+      reason:           String
+      typeOfOccurrence: String
+      isMachineStopped: Boolean
+      description:      String
+      severity:         String
+      status:           String
+    ): Incident!
+
+    deleteIncident(id: ID!): Boolean!
   }
 `;

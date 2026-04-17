@@ -9,10 +9,12 @@ datasource db {
 
 model Incident {
   id               String   @id @default(auto()) @map("_id") @db.ObjectId
-  description      String
   machineName      String
-  severity         String
-  status           String   @default("Em Aberto")
+  reason           String
   typeOfOccurrence String
+  isMachineStopped Boolean  @default(false)
+  description      String
+  severity         String
+  status           String   @default("Concluído")
   createdAt        DateTime @default(now())
 }
