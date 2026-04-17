@@ -7,14 +7,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Incident {
-  id               String   @id @default(auto()) @map("_id") @db.ObjectId
-  machineName      String
-  reason           String
-  typeOfOccurrence String
-  isMachineStopped Boolean  @default(false)
-  description      String
-  severity         String
-  status           String   @default("Concluído")
-  createdAt        DateTime @default(now())
+model Machine {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  code          String         @unique
+  name          String
+  department    String
+  serviceOrders ServiceOrder[]
 }
+
+model ServiceOrder {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  machine          Machine   @relation(fields: [machineId], references: [id])
+  machineId        String    @db.ObjectId
+  reason           String
+  type             String    @default("Corretiva") // Preventiva, Corretiva, Planejada
+  isMachineStopped Boolean   @default(false)
+  description      String
+  servicePerformed String?   // Novo: Campo preenchido na conclusão
+  severity         String    // Crítica, Alta, Média, Baixa
+  status           String    @default("Em Aberto") // Em Aberto, Concluído
+  createdAt        DateTime  @default(now())
+  serviceEndDate   DateTime? // Novo: Data de fechamento
+  serviceOrderLink String?   // Novo: Link para documento técnico
+}
+

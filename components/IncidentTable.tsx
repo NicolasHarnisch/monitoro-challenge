@@ -20,8 +20,11 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
-import { GET_LAST_INCIDENTS, DELETE_INCIDENT, UPDATE_STATUS } from '@/lib/graphql-queries';
-import type { Incident, SortConfig } from '@/types/incident';
+import { GET_SERVICE_ORDERS, DELETE_SERVICE_ORDER, UPDATE_STATUS, COMPLETE_SERVICE_ORDER } from '@/lib/graphql-queries';
+import type { ServiceOrder, SortConfig } from '@/types/service-order';
+
+// retrocompatibilidade de nomes
+type Incident = ServiceOrder;
 
 import { KpiCards } from '@/components/incident/KpiCards';
 import { TypeBadge } from '@/components/incident/TypeBadge';
@@ -30,8 +33,8 @@ import { SeverityBadge } from '@/components/incident/SeverityBadge';
 import { IncidentForm } from '@/components/IncidentForm';
 import { IncidentAnalytics } from '@/components/IncidentAnalytics';
 
-interface LastIncidentsData {
-  lastIncidents: Incident[];
+interface ServiceOrdersData {
+  serviceOrders: ServiceOrder[];
 }
 
 interface IncidentTableProps {
@@ -54,18 +57,24 @@ export function IncidentTable({
   onClearFilters,
 }: IncidentTableProps) {
   // --- Busca de dados (polling a cada 10s para live sync) ---
-  const { data, loading, error } = useQuery<LastIncidentsData>(GET_LAST_INCIDENTS, {
+  // Equivalente ao @Query serviceOrders() do ServiceOrderResolver do projeto de referência.
+  const { data, loading, error } = useQuery<ServiceOrdersData>(GET_SERVICE_ORDERS, {
     variables: { limit: 100 },
     pollInterval: 10000, // Live Sync: recarrega a cada 10 segundos
     notifyOnNetworkStatusChange: false,
   });
 
-  const [deleteIncidentMutation] = useMutation(DELETE_INCIDENT, {
-    refetchQueries: [{ query: GET_LAST_INCIDENTS, variables: { limit: 100 } }],
+  const [deleteServiceOrderMutation] = useMutation(DELETE_SERVICE_ORDER, {
+    refetchQueries: [{ query: GET_SERVICE_ORDERS, variables: { limit: 100 } }],
   });
 
   const [updateStatusMutation] = useMutation(UPDATE_STATUS, {
-    refetchQueries: [{ query: GET_LAST_INCIDENTS, variables: { limit: 100 } }],
+    refetchQueries: [{ query: GET_SERVICE_ORDERS, variables: { limit: 100 } }],
+  });
+
+  // Mutation para concluir OS — equivalente a completeServiceOrder do projeto de referência.
+  const [completeServiceOrderMutation] = useMutation(COMPLETE_SERVICE_ORDER, {
+    refetchQueries: [{ query: GET_SERVICE_ORDERS, variables: { limit: 100 } }],
   });
 
   // --- Estados locais ---
@@ -73,17 +82,31 @@ export function IncidentTable({
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isEditOpen, setIsEditOpen]       = useState(false);
   const [isDeleteOpen, setIsDeleteOpen]   = useState(false);
+  const [isCompleteOpen, setIsCompleteOpen] = useState(false);
+  const [completeForm, setCompleteForm] = useState({ serviceEndDate: '', servicePerformed: '', serviceOrderLink: '' });
   const [machineFilter, setMachineFilter] = useState<string | null>(null);
   const [sortConfig, setSortConfig]       = useState<SortConfig>({ key: 'status', direction: 'asc' });
 
-  const incidents = data?.lastIncidents ?? [];
+  const incidents = data?.serviceOrders ?? [];
 
   // --- Helpers ---
-  const getDepartment = (machine: string): string => {
-    const m = machine.toLowerCase();
-    if (m.includes('volvo') || m.includes('case') || m.includes('caminhão')) return 'Frota Pesada';
-    if (m.includes('gerador')) return 'Infraestrutura';
-    return 'Produção';
+  /** Extrai o departamento da máquina relacionada, com fallback para o texto antigo. */
+  const getDepartment = (incident: Incident | null): string => {
+    if (!incident) return 'N/A';
+    if (incident.machine?.department) return incident.machine.department;
+    return 'N/A';
+  };
+
+  /** Retorna o nome de exibição da máquina (objeto relacionado ou string legada). */
+  const getMachineName = (incident: Incident | null): string => {
+    if (!incident) return '';
+    return incident.machine?.name ?? (incident as any).machineName ?? '';
+  };
+
+  /** Retorna o código da máquina relacionada. */
+  const getMachineCode = (incident: Incident | null): string => {
+    if (!incident) return '';
+    return incident.machine?.code ?? '';
   };
 
   const getStatusWeight = (status: string): number => {
@@ -96,16 +119,17 @@ export function IncidentTable({
 
   // --- Filtragem composta ---
   const filteredIncidents = incidents.filter(inc => {
-    if (machineFilter && inc.machineName !== machineFilter) return false;
+    if (machineFilter && getMachineName(inc) !== machineFilter) return false;
 
     const term = searchTerm.toLowerCase();
     const textMatch =
-      inc.machineName.toLowerCase().includes(term) ||
+      getMachineName(inc).toLowerCase().includes(term) ||
       inc.reason.toLowerCase().includes(term) ||
       inc.id.toLowerCase().includes(term);
 
+    const incType = inc.type ?? (inc as any).typeOfOccurrence ?? '';
     const typeMatch = activeTypes.length === 0 ||
-      activeTypes.some(t => t.toLowerCase() === inc.typeOfOccurrence.toLowerCase());
+      activeTypes.some(t => t.toLowerCase() === incType.toLowerCase());
 
     let statusMatch = true;
     if (statusFilter !== 'Todos') {
@@ -147,7 +171,7 @@ export function IncidentTable({
   });
 
   // --- Cálculo dos KPIs ---
-  const kpiBase       = machineFilter ? incidents.filter(i => i.machineName === machineFilter) : incidents;
+  const kpiBase       = machineFilter ? incidents.filter(i => getMachineName(i) === machineFilter) : incidents;
   const totalCount    = kpiBase.length;
   const openCount     = kpiBase.filter(i => i.status.toLowerCase().includes('aberto')).length;
   const criticalCount = kpiBase.filter(i => i.severity.toLowerCase() === 'alta').length;
@@ -171,11 +195,40 @@ export function IncidentTable({
   const confirmDelete = async () => {
     if (!selectedIncident) return;
     try {
-      await deleteIncidentMutation({ variables: { id: selectedIncident.id } });
-      toast.success('Ocorrência excluída com sucesso.');
+      await deleteServiceOrderMutation({ variables: { id: selectedIncident.id } });
+      toast.success('Ordem de serviço excluída com sucesso.');
       setIsDeleteOpen(false);
     } catch {
-      toast.error('Erro ao excluir ocorrência.');
+      toast.error('Erro ao excluir ordem de serviço.');
+    }
+  };
+
+  // Abre o modal de conclusão — baseado em CompleteServiceOrderInput do projeto de referência.
+  const handleOpenComplete = (incident: Incident, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIncident(incident);
+    setCompleteForm({ serviceEndDate: '', servicePerformed: '', serviceOrderLink: '' });
+    setIsCompleteOpen(true);
+  };
+
+  const confirmComplete = async () => {
+    if (!selectedIncident || !completeForm.serviceEndDate) {
+      toast.error('Preencha a data de término do serviço.');
+      return;
+    }
+    try {
+      await completeServiceOrderMutation({
+        variables: {
+          id: selectedIncident.id,
+          serviceEndDate: new Date(completeForm.serviceEndDate + 'T12:00:00.000Z').toISOString(),
+          servicePerformed: completeForm.servicePerformed || undefined,
+          serviceOrderLink: completeForm.serviceOrderLink || undefined,
+        },
+      });
+      toast.success('Ordem de serviço concluída com sucesso!');
+      setIsCompleteOpen(false);
+    } catch {
+      toast.error('Erro ao concluir a ordem de serviço.');
     }
   };
 
@@ -196,19 +249,21 @@ export function IncidentTable({
       return;
     }
 
-    const headers = ['ID', 'Equipamento', 'Departamento', 'Motivo', 'Tipo de Ocorrência', 'Status', 'Severidade', 'Máquina Parada?', 'Data de Criação'];
+    const headers = ['ID', 'Cód. Máquina', 'Equipamento', 'Departamento', 'Motivo', 'Tipo', 'Status', 'Severidade', 'Máquina Parada?', 'Data de Criação', 'Data Conclusão'];
     const escapeField = (value: string) => `"${value.replace(/"/g, '""')}"`;
 
     const rows = finalIncidents.map(i => [
       escapeField(i.id),
-      escapeField(i.machineName),
-      escapeField(getDepartment(i.machineName)),
+      escapeField(getMachineCode(i)),
+      escapeField(getMachineName(i)),
+      escapeField(getDepartment(i)),
       escapeField(i.reason),
-      escapeField(i.typeOfOccurrence),
+      escapeField(i.type ?? (i as any).typeOfOccurrence ?? ''),
       escapeField(i.status),
       escapeField(i.severity),
       escapeField(i.isMachineStopped ? 'Sim' : 'Não'),
       escapeField(format(new Date(parseInt(i.createdAt)), 'dd/MM/yyyy HH:mm', { locale: ptBR })),
+      escapeField(i.serviceEndDate ? format(new Date(parseInt(i.serviceEndDate)), 'dd/MM/yyyy', { locale: ptBR }) : '-'),
     ].join(';'));
 
     // '\uFEFF' é o BOM UTF-8 — necessário para o Excel Windows ler acentos corretamente
@@ -218,7 +273,7 @@ export function IncidentTable({
 
     const a = document.createElement('a');
     a.href = url;
-    a.download = `relatorio-manutencao-${format(new Date(), 'dd-MM-yyyy')}.csv`;
+    a.download = `relatorio-os-${format(new Date(), 'dd-MM-yyyy')}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -275,7 +330,10 @@ export function IncidentTable({
             <div className="grid grid-cols-2 gap-x-12 gap-y-6 mb-10">
               <div className="border-l-4 border-gray-100 pl-4">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Equipamento / Máquina</p>
-                <p className="text-xl font-black uppercase text-gray-900">{selectedIncident.machineName}</p>
+                <p className="text-xl font-black uppercase text-gray-900">{getMachineName(selectedIncident)}</p>
+                {getMachineCode(selectedIncident) && (
+                  <p className="text-xs font-mono text-gray-400 mt-0.5">{getMachineCode(selectedIncident)}</p>
+                )}
                 {selectedIncident.isMachineStopped && (
                   <p className="text-xs font-bold text-red-600 uppercase mt-1 flex items-center">
                     <AlertTriangle size={12} className="mr-1" /> MÁQUINA PARADA!
@@ -284,11 +342,11 @@ export function IncidentTable({
               </div>
               <div className="border-l-4 border-gray-100 pl-4">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Departamento</p>
-                <p className="text-lg font-bold uppercase">{getDepartment(selectedIncident.machineName)}</p>
+                <p className="text-lg font-bold uppercase">{getDepartment(selectedIncident)}</p>
               </div>
               <div className="border-l-4 border-gray-100 pl-4">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Tipo de Manutenção</p>
-                <p className="text-lg uppercase font-bold text-[#382b22]">{selectedIncident.typeOfOccurrence}</p>
+                <p className="text-lg uppercase font-bold text-[#382b22]">{selectedIncident.type ?? (selectedIncident as any).typeOfOccurrence}</p>
               </div>
               <div className="border-l-4 border-gray-100 pl-4">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Severidade</p>
@@ -384,7 +442,7 @@ export function IncidentTable({
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Equipamento</p>
                 <p className="text-base font-bold text-gray-900 flex items-center gap-2">
-                  {selectedIncident?.machineName}
+                  {getMachineName(selectedIncident)}
                   {selectedIncident?.isMachineStopped && (
                     <span className="bg-red-100 text-red-600 text-[9px] font-black px-2 py-0.5 rounded-full uppercase flex items-center gap-1">
                       <AlertTriangle size={10} /> Parada
@@ -395,14 +453,14 @@ export function IncidentTable({
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Departamento</p>
                 <p className="text-base font-bold text-gray-900">
-                  {selectedIncident ? getDepartment(selectedIncident.machineName) : '-'}
+                  {selectedIncident ? getDepartment(selectedIncident) : '-'}
                 </p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-8">
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tipo de Serviço</p>
-                <div className="pt-1"><TypeBadge type={selectedIncident?.typeOfOccurrence || ''} /></div>
+                <div className="pt-1"><TypeBadge type={selectedIncident?.type ?? (selectedIncident as any)?.typeOfOccurrence ?? ''} /></div>
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Severidade</p>
@@ -454,11 +512,38 @@ export function IncidentTable({
           </div>
           <DialogTitle className="text-xl font-bold mb-2">Excluir Ordem?</DialogTitle>
           <DialogDescription className="text-base text-gray-600 mb-8">
-            Deseja mesmo excluir a ocorrência da máquina <strong>{selectedIncident?.machineName}</strong>? Esta ação não pode ser desfeita.
+            Deseja mesmo excluir a ocorrência da máquina <strong>{selectedIncident ? getMachineName(selectedIncident) : ''}</strong>? Esta ação não pode ser desfeita.
           </DialogDescription>
           <DialogFooter className="flex justify-center gap-3 sm:justify-center">
             <Button variant="outline" onClick={() => setIsDeleteOpen(false)} className="px-6 rounded-[8px]">Cancelar</Button>
             <Button variant="destructive" onClick={confirmDelete} className="px-6 rounded-[8px]">Sim, Excluir</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCompleteOpen} onOpenChange={setIsCompleteOpen}>
+        <DialogContent className="sm:max-w-[450px] border-0 rounded-[16px] p-8">
+          <DialogTitle className="text-xl font-bold mb-4">Concluir Ordem de Serviço</DialogTitle>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase">Data de Término</label>
+              <input type="date" className="w-full border border-gray-200 rounded-lg p-2 mt-1"
+                value={completeForm.serviceEndDate} onChange={e => setCompleteForm({...completeForm, serviceEndDate: e.target.value})} />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase">Serviço Realizado</label>
+              <textarea className="w-full border border-gray-200 rounded-lg p-2 mt-1" rows={3}
+                value={completeForm.servicePerformed} onChange={e => setCompleteForm({...completeForm, servicePerformed: e.target.value})} />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase">Link da OS (Opcional)</label>
+              <input type="text" className="w-full border border-gray-200 rounded-lg p-2 mt-1"
+                value={completeForm.serviceOrderLink} onChange={e => setCompleteForm({...completeForm, serviceOrderLink: e.target.value})} />
+            </div>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setIsCompleteOpen(false)}>Cancelar</Button>
+            <Button onClick={confirmComplete} className="bg-emerald-600 hover:bg-emerald-700">Confirmar Conclusão</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -569,11 +654,11 @@ export function IncidentTable({
                 <TableCell className="px-4 py-3">
                   <div className="font-semibold text-gray-900 text-sm flex items-center gap-2">
                     <span
-                      className={`truncate max-w-[160px] cursor-pointer hover:underline ${machineFilter === incident.machineName ? 'text-orange-600' : ''}`}
-                      title={`${incident.machineName} (Clique para filtrar apenas esta máquina)`}
-                      onClick={e => { e.stopPropagation(); setMachineFilter(machineFilter === incident.machineName ? null : incident.machineName); }}
+                      className={`truncate max-w-[160px] cursor-pointer hover:underline ${machineFilter === getMachineName(incident) ? 'text-orange-600' : ''}`}
+                      title={`${getMachineName(incident)} (${getMachineCode(incident)}) — Clique para filtrar`}
+                      onClick={e => { e.stopPropagation(); setMachineFilter(machineFilter === getMachineName(incident) ? null : getMachineName(incident)); }}
                     >
-                      {incident.machineName}
+                      {getMachineName(incident)}
                     </span>
                     {incident.isMachineStopped && (
                       <span title="Máquina Parada!" className="flex-shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-red-600">
@@ -581,6 +666,7 @@ export function IncidentTable({
                       </span>
                     )}
                   </div>
+                  <div className="text-[11px] text-gray-400 font-mono mt-0.5">{getMachineCode(incident)}</div>
                   <div className="text-[13px] text-gray-500 font-bold font-mono mt-0.5 tracking-tight" title={incident.id}>
                     <span className="text-[#382b22]">#</span>
                     <span className="opacity-80">{incident.id.slice(-6).toUpperCase()}</span>
@@ -589,7 +675,7 @@ export function IncidentTable({
 
                 <TableCell className="px-4 py-3">
                   <div className="flex flex-row items-center gap-2 flex-nowrap">
-                    <TypeBadge type={incident.typeOfOccurrence} />
+                    <TypeBadge type={incident.type ?? (incident as any).typeOfOccurrence ?? ''} />
                     <SeverityBadge severity={incident.severity || 'Média'} />
                   </div>
                 </TableCell>
@@ -615,35 +701,37 @@ export function IncidentTable({
 
                 <TableCell className="px-4 py-3 whitespace-nowrap">
                   <span className="text-[12px] font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded-md">
-                    {getDepartment(incident.machineName)}
+                    {getDepartment(incident)}
                   </span>
                 </TableCell>
 
                 <TableCell className="px-4 py-3 print:hidden">
                   <div className="flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity">
                     <div className="flex items-center justify-end gap-1 w-[72px]">
+                      {/* Botão Concluir OS — aparece apenas para OS em aberto. Equivalente ao modal CompleteServiceOrder do projeto de referência. */}
+                      {!incident.serviceEndDate && incident.status !== 'Concluído' && (
+                        <Button onClick={e => handleOpenComplete(incident, e)}
+                          variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 rounded-md hover:bg-emerald-50" title="Concluir OS">
+                          <CheckCircle2 size={14} />
+                        </Button>
+                      )}
                       {incident.status === 'Em Aberto' && (
                         <Button onClick={e => handleFastStatusUpdate(incident, 'Em Andamento', e)}
-                          variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 rounded-md hover:bg-emerald-50" title="Iniciar Atendimento">
+                          variant="ghost" size="icon" className="h-7 w-7 text-blue-500 rounded-md hover:bg-blue-50" title="Iniciar Atendimento">
                           <PlayCircle size={14} />
                         </Button>
                       )}
                       {incident.status === 'Em Andamento' && (
-                        <>
-                          <Button onClick={e => handleFastStatusUpdate(incident, 'Concluído', e)}
-                            variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 rounded-md hover:bg-emerald-50" title="Concluir Ordem">
-                            <CheckCircle2 size={14} />
-                          </Button>
-                          <Button onClick={e => handleFastStatusUpdate(incident, 'Em Aberto', e)}
-                            variant="ghost" size="icon" className="h-7 w-7 text-orange-500 rounded-md hover:bg-orange-50" title="Voltar para Em Aberto">
-                            <Undo2 size={14} />
-                          </Button>
-                        </>
-                      )}
-                      {incident.status === 'Concluído' && (
-                        <Button onClick={e => handleFastStatusUpdate(incident, 'Em Andamento', e)}
-                          variant="ghost" size="icon" className="h-7 w-7 text-orange-500 rounded-md hover:bg-orange-50" title="Voltar para Em Andamento">
+                        <Button onClick={e => handleFastStatusUpdate(incident, 'Em Aberto', e)}
+                          variant="ghost" size="icon" className="h-7 w-7 text-orange-500 rounded-md hover:bg-orange-50" title="Voltar para Em Aberto">
                           <Undo2 size={14} />
+                        </Button>
+                      )}
+                      {/* Link externo — visível quando OS foi concluída com documento anexado */}
+                      {incident.serviceOrderLink && (
+                        <Button onClick={e => { e.stopPropagation(); window.open(incident.serviceOrderLink!.startsWith('http') ? incident.serviceOrderLink! : `https://${incident.serviceOrderLink}`, '_blank'); }}
+                          variant="ghost" size="icon" className="h-7 w-7 text-indigo-600 rounded-md hover:bg-indigo-50" title="Abrir Documento">
+                          <ExternalLink size={14} />
                         </Button>
                       )}
                     </div>

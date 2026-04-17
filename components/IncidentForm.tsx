@@ -1,11 +1,19 @@
 'use client';
 
-/** Formulário reutilizável para criar e editar ordens de serviço */
+/**
+ * Formulário de criação e edição de Ordens de Serviço.
+ *
+ * A estrutura dos campos espelha o CreateServiceOrderInput do projeto de referência:
+ *   exemplos-para-desafio-ERP/BACKEND/service-order/dto/create-service-order.input.ts
+ *
+ * Diferença principal: o projeto de referência usa class-validator + NestJS DI.
+ * Aqui, a validação é feita via Zod + React Hook Form, mais adequado para Next.js.
+ */
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useMutation } from '@apollo/client/react';
+import { useMutation, useQuery } from '@apollo/client/react';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
@@ -17,19 +25,29 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 
-import { GET_LAST_INCIDENTS, CREATE_INCIDENT, UPDATE_INCIDENT } from '@/lib/graphql-queries';
+import {
+  GET_SERVICE_ORDERS,
+  GET_MACHINES,
+  CREATE_SERVICE_ORDER,
+  UPDATE_SERVICE_ORDER,
+} from '@/lib/graphql-queries';
+import { Machine } from '@/types/service-order';
 
-const incidentSchema = z.object({
-  machineName:      z.string().min(1, 'Preencha este campo.'),
+/**
+ * Schema de validação — espelha os campos obrigatórios do CreateServiceOrderInput
+ * do projeto de referência (machineId, reason, type, isMachineStopped, description).
+ */
+const serviceOrderSchema = z.object({
+  machineId:        z.string().min(1, 'Selecione uma máquina.'),
   reason:           z.string().min(1, 'Preencha este campo.'),
-  typeOfOccurrence: z.string().min(1, 'Preencha este campo.'),
+  type:             z.string().min(1, 'Preencha este campo.'),
   isMachineStopped: z.boolean(),
   description:      z.string().min(1, 'Preencha este campo.'),
   severity:         z.string().min(1, 'Preencha este campo.'),
   status:           z.string().optional(),
 });
 
-type IncidentFormData = z.infer<typeof incidentSchema>;
+type ServiceOrderFormData = z.infer<typeof serviceOrderSchema>;
 
 interface IncidentFormProps {
   onSuccess?: () => void;
@@ -38,24 +56,29 @@ interface IncidentFormProps {
 }
 
 export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormProps) {
-  const [createIncident, { loading: isCreating }] = useMutation(CREATE_INCIDENT, {
-    refetchQueries: [{ query: GET_LAST_INCIDENTS, variables: { limit: 100 } }],
+  // Busca as máquinas cadastradas para popular o select.
+  // Equivalente ao uso de MachineService.findAll() no projeto de referência.
+  const { data: machinesData } = useQuery<{ machines: Machine[] }>(GET_MACHINES);
+  const machines = machinesData?.machines ?? [];
+
+  const [createServiceOrder, { loading: isCreating }] = useMutation(CREATE_SERVICE_ORDER, {
+    refetchQueries: [{ query: GET_SERVICE_ORDERS, variables: { limit: 100 } }],
     awaitRefetchQueries: true,
   });
 
-  const [updateIncident, { loading: isUpdating }] = useMutation(UPDATE_INCIDENT, {
-    refetchQueries: [{ query: GET_LAST_INCIDENTS, variables: { limit: 100 } }],
+  const [updateServiceOrder, { loading: isUpdating }] = useMutation(UPDATE_SERVICE_ORDER, {
+    refetchQueries: [{ query: GET_SERVICE_ORDERS, variables: { limit: 100 } }],
     awaitRefetchQueries: true,
   });
 
   const loading = isCreating || isUpdating;
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<IncidentFormData>({
-    resolver: zodResolver(incidentSchema),
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ServiceOrderFormData>({
+    resolver: zodResolver(serviceOrderSchema),
     defaultValues: initialData ? {
-      machineName:      initialData.machineName,
+      machineId:        initialData.machine?.id ?? '',
       reason:           initialData.reason,
-      typeOfOccurrence: initialData.typeOfOccurrence,
+      type:             initialData.type,
       isMachineStopped: initialData.isMachineStopped,
       description:      initialData.description,
       severity:         initialData.severity,
@@ -66,13 +89,13 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
     },
   });
 
-  const onSubmit = async (data: IncidentFormData) => {
+  const onSubmit = async (data: ServiceOrderFormData) => {
     try {
       if (initialData?.id) {
-        await updateIncident({ variables: { id: initialData.id, ...data } });
+        await updateServiceOrder({ variables: { id: initialData.id, ...data } });
         toast.success('Ordem de serviço atualizada com sucesso!');
       } else {
-        await createIncident({ variables: data });
+        await createServiceOrder({ variables: data });
         toast.success('Ordem de serviço criada com sucesso!');
       }
       if (onSuccess) onSuccess();
@@ -94,16 +117,27 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
       <form onSubmit={handleSubmit(onSubmit)} className="p-6 pt-4 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
+          {/* Seleção de Máquina — baseado no machineId do CreateServiceOrderInput */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold text-gray-800">Máquina *</Label>
-            <Input
-              {...register('machineName')}
-              placeholder="Digite o nome da máquina"
-              className={`rounded-[8px] h-10 ${errors.machineName ? 'border-red-500' : 'border-gray-200'}`}
-            />
-            {errors.machineName && (
+            <Select
+              onValueChange={val => setValue('machineId', val || '')}
+              defaultValue={watch('machineId') || undefined}
+            >
+              <SelectTrigger className={`rounded-[8px] h-10 ${errors.machineId ? 'border-red-500' : 'border-gray-200'}`}>
+                <SelectValue placeholder="Selecione a máquina" />
+              </SelectTrigger>
+              <SelectContent>
+                {machines.map(m => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.name} ({m.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.machineId && (
               <span className="bg-black text-white px-2 py-1 text-xs rounded shadow-sm inline-block">
-                {errors.machineName.message}
+                {errors.machineId.message}
               </span>
             )}
           </div>
@@ -124,8 +158,8 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
 
           <div className="space-y-2">
             <Label className="text-xs font-semibold text-gray-800">Tipo de Serviço *</Label>
-            <Select onValueChange={val => setValue('typeOfOccurrence', val || '')} defaultValue={watch('typeOfOccurrence') || undefined}>
-              <SelectTrigger className={`rounded-[8px] h-10 ${errors.typeOfOccurrence ? 'border-red-500' : 'border-gray-200'}`}>
+            <Select onValueChange={val => setValue('type', val || '')} defaultValue={watch('type') || undefined}>
+              <SelectTrigger className={`rounded-[8px] h-10 ${errors.type ? 'border-red-500' : 'border-gray-200'}`}>
                 <SelectValue placeholder="Selecione o tipo de serviço" />
               </SelectTrigger>
               <SelectContent>
@@ -134,13 +168,14 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
                 <SelectItem value="Planejada">Planejada</SelectItem>
               </SelectContent>
             </Select>
-            {errors.typeOfOccurrence && (
+            {errors.type && (
               <span className="bg-black text-white px-2 py-1 text-xs rounded shadow-sm inline-block">
-                {errors.typeOfOccurrence.message}
+                {errors.type.message}
               </span>
             )}
           </div>
 
+          {/* isMachineStopped — campo boolean obrigatório do CreateServiceOrderInput */}
           <div className="flex items-center space-x-2 md:mt-8">
             <Checkbox
               id="machineStopped"

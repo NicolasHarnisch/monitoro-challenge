@@ -1,41 +1,90 @@
+/**
+ * Schema GraphQL (SDL).
+ *
+ * Modelado a partir da estrutura de resolvers e DTOs do projeto de referência:
+ *   exemplos-para-desafio-ERP/BACKEND/service-order/service-order.resolver.ts
+ *   exemplos-para-desafio-ERP/BACKEND/service-order/dto/create-service-order.input.ts
+ *   exemplos-para-desafio-ERP/BACKEND/service-order/dto/complete-service-order.input.ts
+ *
+ * O projeto de referência usa Apollo Server com NestJS; aqui integramos para
+ * Next.js via @as-integrations/next — o schema SDL em si permanece idêntico.
+ */
+
 export const typeDefs = `#graphql
-  type Incident {
+
+  # ─── MÁQUINA ───────────────────────────────────────────────────────────────
+  # Equivale ao modelo Machine e à entidade Machine do projeto de referência.
+
+  type Machine {
+    id:         ID!
+    code:       String!
+    name:       String!
+    department: String!
+  }
+
+  # ─── ORDEM DE SERVIÇO ───────────────────────────────────────────────────────
+  # Equivale ao modelo ServiceOrder e à entidade ServiceOrder do projeto de referência.
+
+  type ServiceOrder {
     id:               ID!
-    machineName:      String!
+    machine:          Machine!
     reason:           String!
-    typeOfOccurrence: String!
+    type:             String!
     isMachineStopped: Boolean!
     description:      String!
+    servicePerformed: String
     severity:         String!
     status:           String!
     createdAt:        String!
+    serviceEndDate:   String
+    serviceOrderLink: String
   }
+
+  # ─── QUERIES ─────────────────────────────────────────────────────────────────
+  # Baseadas nos @Query do ServiceOrderResolver e MachineResolver do projeto de referência.
 
   type Query {
-    lastIncidents(limit: Int): [Incident!]!
+    # Retorna todas as ordens de serviço (equivalente a serviceOrders no resolver de referência).
+    serviceOrders(limit: Int): [ServiceOrder!]!
+
+    # Retorna todas as máquinas disponíveis para seleção no formulário.
+    machines: [Machine!]!
   }
 
+  # ─── MUTATIONS ───────────────────────────────────────────────────────────────
+  # Baseadas nos @Mutation do ServiceOrderResolver do projeto de referência.
+
   type Mutation {
-    createIncident(
-      machineName:      String!
+    # Abre uma nova Ordem de Serviço — equivalente a createServiceOrder.
+    createServiceOrder(
+      machineId:        String!
       reason:           String!
-      typeOfOccurrence: String!
+      type:             String!
       isMachineStopped: Boolean!
       description:      String!
       severity:         String!
-    ): Incident!
+    ): ServiceOrder!
 
-    updateIncident(
+    # Atualiza os dados de uma OS (edição inline na tabela).
+    updateServiceOrder(
       id:               ID!
-      machineName:      String
       reason:           String
-      typeOfOccurrence: String
+      type:             String
       isMachineStopped: Boolean
       description:      String
       severity:         String
       status:           String
-    ): Incident!
+    ): ServiceOrder!
 
-    deleteIncident(id: ID!): Boolean!
+    # Fecha uma OS como Concluída — equivalente a completeServiceOrder do projeto de referência.
+    # Registra a data de encerramento, o parecer técnico e o link do documento.
+    completeServiceOrder(
+      id:               ID!
+      serviceEndDate:   String!
+      servicePerformed: String
+      serviceOrderLink: String
+    ): ServiceOrder!
+
+    deleteServiceOrder(id: ID!): Boolean!
   }
 `;

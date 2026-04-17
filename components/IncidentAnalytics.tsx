@@ -9,8 +9,13 @@ interface Incident {
   id: string;
   createdAt: string;
   severity: string;
-  machineName: string;
+  machine?: {
+    name: string;
+  };
+  machineName?: string;
 }
+
+const getMachineName = (i: any) => i.machine?.name ?? i.machineName ?? 'Desconhecida';
 
 export function IncidentAnalytics({ incidents }: { incidents: Incident[] }) {
   // Processar dados para as 2 visualizações
@@ -37,7 +42,7 @@ export function IncidentAnalytics({ incidents }: { incidents: Incident[] }) {
       }
 
       // Data para Severidade por Máquina
-      const machine = incident.machineName;
+      const machine = getMachineName(incident);
       if (!severityMap.has(machine)) {
         severityMap.set(machine, { name: machine, Alta: 0, Média: 0, Baixa: 0 });
       }

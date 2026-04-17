@@ -1,70 +1,136 @@
+/**
+ * Script de seed do banco de dados.
+ *
+ * Popula as tabelas Machine e ServiceOrder com dados de exemplo.
+ * A estrutura de máquinas e o conceito de "service order" vinculada a uma máquina
+ * foram portados do projeto de referência:
+ *   exemplos-para-desafio-ERP/BACKEND/machine/machine.service.ts
+ *   exemplos-para-desafio-ERP/BACKEND/service-order/service-order.service.ts
+ *
+ * Para rodar: node scripts/seed.js
+ */
 const { PrismaClient } = require('@prisma/client')
 
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('Iniciando o seed do banco de dados...')
+  console.log('🌱 Iniciando seed do banco de dados...')
 
-  // Limpar os incidentes existentes (opcional, pode descomentar se quiser limpar tudo)
-  // await prisma.incident.deleteMany()
+  // Limpar dados antigos (serviceOrders antes de machines por causa de FK)
+  await prisma.serviceOrder.deleteMany()
+  await prisma.machine.deleteMany()
+  console.log('🗑️  Dados antigos removidos.')
 
-  const machines = [
-    'Corrente de rebarba (21)',
-    'Maromba 12',
-    'Enchedeira Volvo L60',
-    'Gerador G1',
-    'Enchedeira Case 721',
-    'Esteira 5',
-    'Caminhão Volvo VM-330/2'
+  // ──────────────────────────────────────────────────────────────────────────────
+  // MÁQUINAS
+  // Equivalente ao create() do MachineService do projeto de referência.
+  // ──────────────────────────────────────────────────────────────────────────────
+  const machineData = [
+    { code: 'MAQ-001', name: 'Corrente de Rebarba 21',      department: 'Produção' },
+    { code: 'MAQ-002', name: 'Maromba 12',                  department: 'Produção' },
+    { code: 'MAQ-003', name: 'Enchedeira Volvo L60',         department: 'Logística' },
+    { code: 'MAQ-004', name: 'Gerador G1',                   department: 'Utilidades' },
+    { code: 'MAQ-005', name: 'Enchedeira Case 721',          department: 'Logística' },
+    { code: 'MAQ-006', name: 'Esteira 5',                    department: 'Produção' },
+    { code: 'MAQ-007', name: 'Caminhão Volvo VM-330/2',      department: 'Logística' },
   ]
 
+  const machines = []
+  for (const m of machineData) {
+    const machine = await prisma.machine.create({ data: m })
+    machines.push(machine)
+    console.log(`  ✔ Máquina criada: ${machine.name} [${machine.code}]`)
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // ORDENS DE SERVIÇO
+  // Equivalente ao create() do ServiceOrderService do projeto de referência,
+  // que usa machine: { connect: { id: input.machineId } }.
+  // ──────────────────────────────────────────────────────────────────────────────
   const reasons = [
     'Temperatura elevada do motor',
-    'Vazamento de óleo',
+    'Vazamento de óleo hidráulico',
     'Troca de filtros periódica',
     'Ruído excessivo na correia',
     'Painel de controle com falha',
     'Manutenção de rotina',
-    'Correia solta',
-    'Sensor de pressão inoperante'
+    'Correia solta ou desgastada',
+    'Sensor de pressão inoperante',
   ]
 
-  const incidentsToCreate = [
-    { machineName: machines[0], typeOfOccurrence: 'Corretiva', severity: 'Média', status: 'Concluído', isMachineStopped: true },
-    { machineName: machines[2], typeOfOccurrence: 'Preventiva', severity: 'Baixa', status: 'Concluído', isMachineStopped: false },
-    { machineName: machines[1], typeOfOccurrence: 'Corretiva', severity: 'Alta', status: 'Em Aberto', isMachineStopped: true },
-    { machineName: machines[3], typeOfOccurrence: 'Planejada', severity: 'Média', status: 'Em Andamento', isMachineStopped: false },
-    { machineName: machines[4], typeOfOccurrence: 'Preventiva', severity: 'Média', status: 'Concluído', isMachineStopped: false },
-    { machineName: machines[5], typeOfOccurrence: 'Corretiva', severity: 'Alta', status: 'Em Aberto', isMachineStopped: true },
-    { machineName: machines[6], typeOfOccurrence: 'Planejada', severity: 'Baixa', status: 'Em Andamento', isMachineStopped: false },
-    { machineName: machines[0], typeOfOccurrence: 'Corretiva', severity: 'Média', status: 'Em Aberto', isMachineStopped: false },
-    { machineName: machines[1], typeOfOccurrence: 'Preventiva', severity: 'Média', status: 'Concluído', isMachineStopped: false },
-    { machineName: machines[2], typeOfOccurrence: 'Corretiva', severity: 'Alta', status: 'Em Andamento', isMachineStopped: true },
-  ]
+  const ordersToCreate = [];
+  
+  // Vamos gerar 60 ordens de serviço espalhadas pelos últimos 120 dias
+  for (let i = 0; i < 60; i++) {
+    const randomMachine = machines[Math.floor(Math.random() * machines.length)];
+    const daysAgo = Math.floor(Math.random() * 120);
+    
+    // Status e tempo
+    const statusRand = Math.random();
+    let status = 'Concluído';
+    if (daysAgo < 5) {
+      if (statusRand > 0.5) status = 'Em Aberto';
+      else if (statusRand > 0.2) status = 'Em Andamento';
+    } else if (daysAgo < 15) {
+      if (statusRand > 0.8) status = 'Em Andamento';
+    }
+
+    // Tipo de serviço e severidade
+    const typeRand = Math.random();
+    let type = 'Corretiva';
+    let severity = 'Média';
+    
+    if (typeRand > 0.6) {
+      type = 'Preventiva';
+      severity = 'Baixa';
+    } else if (typeRand > 0.4) {
+      type = 'Planejada';
+      severity = 'Média';
+    } else {
+      severity = Math.random() > 0.5 ? 'Alta' : 'Média';
+    }
+
+    ordersToCreate.push({
+      machine: randomMachine,
+      type,
+      severity,
+      status,
+      isMachineStopped: type === 'Corretiva' && severity === 'Alta',
+      daysAgo
+    });
+  }
 
   let count = 0
-  for (const inc of incidentsToCreate) {
-    const randomReason = reasons[Math.floor(Math.random() * reasons.length)]
-    // Criar datas um pouco espaçadas nos últimos 7 dias
-    const pastDate = new Date()
-    pastDate.setDate(pastDate.getDate() - Math.floor(Math.random() * 7))
+  for (const o of ordersToCreate) {
+    const reason = reasons[Math.floor(Math.random() * reasons.length)]
+    const createdAt = new Date()
+    createdAt.setDate(createdAt.getDate() - o.daysAgo)
+    // Variar as horas também
+    createdAt.setHours(Math.floor(Math.random() * 8) + 8) // 8h às 16h
+    createdAt.setMinutes(Math.floor(Math.random() * 60))
 
-    await prisma.incident.create({
+    const serviceEndDate = o.status === 'Concluído'
+      ? new Date(createdAt.getTime() + (Math.floor(Math.random() * 4) + 1) * 60 * 60 * 1000) // de 1 a 4 horas depois
+      : null
+
+    await prisma.serviceOrder.create({
       data: {
-        machineName: inc.machineName,
-        reason: randomReason,
-        typeOfOccurrence: inc.typeOfOccurrence,
-        isMachineStopped: inc.isMachineStopped,
-        description: `Descrição detalhada gerada automaticamente para a ocorrência: ${randomReason}. Serviço de prioridade ${inc.severity}.`,
-        severity: inc.severity,
-        status: inc.status,
-        createdAt: pastDate,
+        machine:          { connect: { id: o.machine.id } },
+        reason,
+        type:             o.type,
+        isMachineStopped: o.isMachineStopped,
+        description:      `${reason} — verificação e correção necessária. Prioridade ${o.severity.toLowerCase()}.`,
+        servicePerformed: o.status === 'Concluído' ? 'Serviço executado e equipamento liberado para operação após testes mecânicos e elétricos.' : null,
+        severity:         o.severity,
+        status:           o.status,
+        createdAt,
+        serviceEndDate,
       }
     })
     count++
   }
 
-  console.log(`✅ Seed finalizado com sucesso! ${count} ordens criadas.`)
+  console.log(`\n✅ Seed finalizado! ${machines.length} máquinas e ${count} ordens de serviço criadas.`)
 }
 
 main()

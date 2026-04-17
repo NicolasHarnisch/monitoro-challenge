@@ -4,23 +4,21 @@ Sistema de gestão de ordens de serviço para manutenção industrial, desenvolv
 
 ## Sobre o projeto
 
-O Monitoro surgiu da necessidade de digitalizar o processo de abertura e acompanhamento de chamados de manutenção. Em vez de planilhas e papéis, a equipe consegue registrar ocorrências, acompanhar o andamento em tempo real e extrair relatórios diretamente pela plataforma.
+O Monitoro surgiu da necessidade de digitalizar o processo de abertura e acompanhamento de chamados de manutenção em ambientes industriais. O sistema adota uma arquitetura de dados relacional robusta, segregando a gestão de Máquinas (Equipamentos) das Ordens de Serviço (OS). Em vez de planilhas e controles manuais, a equipe técnica e de gestão consegue registrar ocorrências estruturadas, acompanhar o andamento em tempo real, gerenciar o encerramento técnico e extrair relatórios altamente precisos diretamente pela plataforma.
 
 ## Funcionalidades
 
-**Dashboard:** KPI cards com contagem de abertas, críticas e total de ordens. Cada card é clicável e aplica filtro na tabela.
+**Dashboard Analítico:** KPI cards com contagem de ordens abertas, críticas e o volume total operante. Os cards funcionam como atalhos de filtro dinâmico na tabela.
 
-**Gráficos analíticos:** Volume de chamados nos últimos 3 meses (área) e ranking dos equipamentos com mais ocorrências (barras horizontais), ambos construídos com Recharts.
+**Métricas e Gráficos:** Integração com Recharts para visualização do volume de chamados nos últimos trimestres (área contínua) e um ranking automatizado dos gargalos na planta, exibindo o Top 5 equipamentos com mais ocorrências agrupados por severidade.
 
-**Tabela de OS:** Busca por texto, filtro por tipo de manutenção (Preventiva, Corretiva, Planejada), status e severidade. Clique em qualquer máquina para filtrar somente as ordens daquele equipamento. As colunas de Data e Status são ordenáveis.
+**Tabela de OS e Live Sync:** Interface principal atualizada automaticamente via polling do Apollo Client (a cada 10s). Permite busca por texto e filtragem técnica (Preventiva, Corretiva, Planejada; Status e Severidade). A tabela suporta ordenação nativa e permite isolar todos os dados da tela clicando no nome de uma máquina.
 
-**Live sync:** Os dados atualizam automaticamente a cada 10 segundos via polling do Apollo Client, sem precisar recarregar a página.
+**Gestão Completa (CRUD de OS):** Abertura de ordens vinculadas diretamente às entidades de Máquina cadastradas, com validação de dados via Zod e React Hook Form. Fluxos dedicados para edição e atualização rápida de status ("Em Aberto", "Em Andamento", "Concluído").
 
-**CRUD completo:** Abertura de OS com validação de formulário (Zod + React Hook Form), edição inline, atualização rápida de status diretamente na tabela e exclusão com confirmação.
+**Encerramento Técnico:** Modal especializado para a conclusão de manutenções, com registro obrigatório de data e hora do serviço finalizado, campo para parecer técnico e anexo de links externos para laudos.
 
-**Impressão:** Gera um documento A4 com campos para assinatura, peças utilizadas e parecer técnico, adequado para uso em campo.
-
-**Exportação CSV:** Relatório com os dados filtrados, compatível com Excel (encoding UTF-8 com BOM).
+**Relatórios e Exportação:** Exportação CSV do grid de dados ativa, ajustada com encoding UTF-8 (BOM) para compatibilidade nativa com Excel. Opção de visualização individual de OS e impressão estruturada (A4) com áreas para assinaturas e apontamento de materiais em campo.
 
 ## Stack
 
@@ -58,10 +56,11 @@ lib/
   graphql-queries.ts     # Queries e mutations centralizadas
 
 types/
-  incident.ts            # Tipos TypeScript compartilhados
+  incident.ts            # Tipos TypeScript compartilhados e legados
+  service-order.ts       # Interfaces corporativas baseadas em DTOs (Machine, ServiceOrder)
 
 prisma/
-  schema.prisma          # Definição do modelo de dados
+  schema.prisma          # Definição do modelo de dados relacional e coleções no MongoDB
 ```
 
 ## Rodando localmente
@@ -93,7 +92,7 @@ Acesse `http://localhost:3000`.
 
 ## Como os dados fluem
 
-O frontend usa Apollo Client para enviar uma mutation GraphQL para `/api/graphql`. O Apollo Server valida a operação contra o schema, chama o resolver correspondente, que usa o Prisma para executar no MongoDB. Na resposta, o Apollo Client dispara um `refetchQueries` que atualiza a tabela automaticamente.
+O frontend utiliza Apollo Client para gerenciar o estado global assíncrono e disparar mutations para o endpoint `/api/graphql`. O Apollo Server recebe a requisição, valida a estrutura baseada nos `typeDefs` e aciona a camada de negócios (`resolvers`). O código nos resolvers aplica regras padronizadas (baseadas em padrões de injeção e serviços) e interage com o MongoDB via Prisma Client. Após a resolução, as queries no front são revalidadas (`refetchQueries`), sincronizando toda a tela transparentemente.
 
 ## Próximos passos
 

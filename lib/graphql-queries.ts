@@ -1,65 +1,104 @@
+/**
+ * Queries e Mutations GraphQL centralizadas.
+ *
+ * Estruturadas a partir das mesmas operações definidas nos resolvers do projeto de referência:
+ *   exemplos-para-desafio-ERP/BACKEND/service-order/service-order.resolver.ts
+ *
+ * Equivalências:
+ *   GET_SERVICE_ORDERS   → @Query(() => [ServiceOrder])  serviceOrders()
+ *   GET_MACHINES         → @Query(() => [Machine])        machines()
+ *   CREATE_SERVICE_ORDER → @Mutation createServiceOrder()
+ *   UPDATE_SERVICE_ORDER → @Mutation updateServiceOrder()
+ *   COMPLETE_SERVICE_ORDER → @Mutation completeServiceOrder() (CompleteServiceOrderInput)
+ *   DELETE_SERVICE_ORDER → @Mutation deleteServiceOrder()
+ */
+
 import { gql } from '@apollo/client';
 
-export const GET_LAST_INCIDENTS = gql`
-  query GetLastIncidents($limit: Int) {
-    lastIncidents(limit: $limit) {
+// ─── QUERIES ──────────────────────────────────────────────────────────────────
+
+export const GET_SERVICE_ORDERS = gql`
+  query GetServiceOrders($limit: Int) {
+    serviceOrders(limit: $limit) {
       id
-      machineName
+      machine {
+        id
+        code
+        name
+        department
+      }
       reason
-      typeOfOccurrence
+      type
       isMachineStopped
       description
+      servicePerformed
       severity
       status
       createdAt
+      serviceEndDate
+      serviceOrderLink
     }
   }
 `;
 
-export const CREATE_INCIDENT = gql`
-  mutation CreateIncident(
-    $machineName: String!
-    $reason: String!
-    $typeOfOccurrence: String!
+export const GET_MACHINES = gql`
+  query GetMachines {
+    machines {
+      id
+      code
+      name
+      department
+    }
+  }
+`;
+
+// ─── MUTATIONS ────────────────────────────────────────────────────────────────
+
+/** Abre uma nova OS — equivalente a createServiceOrder no resolver de referência. */
+export const CREATE_SERVICE_ORDER = gql`
+  mutation CreateServiceOrder(
+    $machineId:        String!
+    $reason:           String!
+    $type:             String!
     $isMachineStopped: Boolean!
-    $description: String!
-    $severity: String!
+    $description:      String!
+    $severity:         String!
   ) {
-    createIncident(
-      machineName: $machineName
-      reason: $reason
-      typeOfOccurrence: $typeOfOccurrence
+    createServiceOrder(
+      machineId:        $machineId
+      reason:           $reason
+      type:             $type
       isMachineStopped: $isMachineStopped
-      description: $description
-      severity: $severity
+      description:      $description
+      severity:         $severity
     ) {
       id
       status
       createdAt
+      machine { id name code department }
     }
   }
 `;
 
-export const UPDATE_INCIDENT = gql`
-  mutation UpdateIncident(
-    $id: ID!
-    $machineName: String
-    $reason: String
-    $typeOfOccurrence: String
+/** Edição geral dos campos de uma OS. */
+export const UPDATE_SERVICE_ORDER = gql`
+  mutation UpdateServiceOrder(
+    $id:               ID!
+    $reason:           String
+    $type:             String
     $isMachineStopped: Boolean
-    $description: String
-    $severity: String
-    $status: String
+    $description:      String
+    $severity:         String
+    $status:           String
   ) {
-    updateIncident(
-      id: $id
-      machineName: $machineName
-      reason: $reason
-      typeOfOccurrence: $typeOfOccurrence
+    updateServiceOrder(
+      id:               $id
+      reason:           $reason
+      type:             $type
       isMachineStopped: $isMachineStopped
-      description: $description
-      severity: $severity
-      status: $status
+      description:      $description
+      severity:         $severity
+      status:           $status
     ) {
       id
       status
@@ -67,18 +106,55 @@ export const UPDATE_INCIDENT = gql`
   }
 `;
 
-// Mutation separada para atualização rápida de status — usada nas ações da tabela
+/**
+ * Mutation para atualização rápida de status — usada nas ações rápidas da tabela.
+ * Mantém compatibilidade com o padrão de updateServiceOrder do projeto de referência.
+ */
 export const UPDATE_STATUS = gql`
   mutation UpdateStatus($id: ID!, $status: String!) {
-    updateIncident(id: $id, status: $status) {
+    updateServiceOrder(id: $id, status: $status) {
       id
       status
     }
   }
 `;
 
-export const DELETE_INCIDENT = gql`
-  mutation DeleteIncident($id: ID!) {
-    deleteIncident(id: $id)
+/**
+ * Fecha uma OS como Concluída.
+ * Equivalente a CompleteServiceOrderInput do projeto de referência —
+ * registra data de fim, parecer técnico e link do documento.
+ */
+export const COMPLETE_SERVICE_ORDER = gql`
+  mutation CompleteServiceOrder(
+    $id:               ID!
+    $serviceEndDate:   String!
+    $servicePerformed: String
+    $serviceOrderLink: String
+  ) {
+    completeServiceOrder(
+      id:               $id
+      serviceEndDate:   $serviceEndDate
+      servicePerformed: $servicePerformed
+      serviceOrderLink: $serviceOrderLink
+    ) {
+      id
+      status
+      serviceEndDate
+      servicePerformed
+      serviceOrderLink
+    }
   }
 `;
+
+export const DELETE_SERVICE_ORDER = gql`
+  mutation DeleteServiceOrder($id: ID!) {
+    deleteServiceOrder(id: $id)
+  }
+`;
+
+// ─── ALIASES DE RETROCOMPATIBILIDADE ─────────────────────────────────────────
+// Mantidos para não quebrar referências legadas durante a migração.
+export const GET_LAST_INCIDENTS   = GET_SERVICE_ORDERS;
+export const CREATE_INCIDENT      = CREATE_SERVICE_ORDER;
+export const UPDATE_INCIDENT      = UPDATE_SERVICE_ORDER;
+export const DELETE_INCIDENT      = DELETE_SERVICE_ORDER;
