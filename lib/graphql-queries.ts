@@ -53,7 +53,7 @@ export const GET_MACHINES = gql`
 
 export const CREATE_SERVICE_ORDER = gql`
   mutation CreateServiceOrder(
-    $machineId:        String!
+    $machineName:      String!
     $reason:           String!
     $type:             String!
     $isMachineStopped: Boolean!
@@ -61,7 +61,7 @@ export const CREATE_SERVICE_ORDER = gql`
     $severity:         String!
   ) {
     createServiceOrder(
-      machineId:        $machineId
+      machineName:      $machineName
       reason:           $reason
       type:             $type
       isMachineStopped: $isMachineStopped
@@ -79,6 +79,7 @@ export const CREATE_SERVICE_ORDER = gql`
 export const UPDATE_SERVICE_ORDER = gql`
   mutation UpdateServiceOrder(
     $id:               ID!
+    $machineName:      String
     $reason:           String
     $type:             String
     $isMachineStopped: Boolean
@@ -88,6 +89,7 @@ export const UPDATE_SERVICE_ORDER = gql`
   ) {
     updateServiceOrder(
       id:               $id
+      machineName:      $machineName
       reason:           $reason
       type:             $type
       isMachineStopped: $isMachineStopped

@@ -49,7 +49,7 @@ export const typeDefs = `#graphql
   type Mutation {
     # Abre uma nova Ordem de Serviço — equivalente a createServiceOrder.
     createServiceOrder(
-      machineId:        String!
+      machineName:      String!
       reason:           String!
       type:             String!
       isMachineStopped: Boolean!
@@ -60,6 +60,7 @@ export const typeDefs = `#graphql
     # Atualiza os dados de uma OS (edição inline na tabela).
     updateServiceOrder(
       id:               ID!
+      machineName:      String
       reason:           String
       type:             String
       isMachineStopped: Boolean

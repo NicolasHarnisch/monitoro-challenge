@@ -7,6 +7,34 @@ import { prisma } from '@/lib/prisma';
 /** Converte uma Date do Prisma para timestamp Unix em string (padrão da API). */
 const toTimestamp = (date: Date): string => date.getTime().toString();
 
+/** Busca máquina pelo nome ou cria se não existir. */
+async function getOrCreateMachine(name: string) {
+  // Limpa o nome caso venha no formato "Nome (Código)"
+  const cleanName = name.split(' (')[0].trim();
+
+  let machine = await prisma.machine.findFirst({
+    where: { 
+      OR: [
+        { name: cleanName },
+        { name: name.trim() }
+      ]
+    }
+  });
+
+  if (!machine) {
+    // Gera um código curto aleatório para a nova máquina
+    const shortId = Math.random().toString(36).substring(2, 6).toUpperCase();
+    machine = await prisma.machine.create({
+      data: {
+        name: cleanName,
+        code: `MAQ-${shortId}`,
+        department: 'Geral', // Valor padrão para máquinas novas
+      }
+    });
+  }
+  return machine;
+}
+
 export const resolvers = {
 
   // ─── QUERIES ──────────────────────────────────────────────────────────────
@@ -36,7 +64,7 @@ export const resolvers = {
     createServiceOrder: async (
       _: unknown,
       args: {
-        machineId: string;
+        machineName: string;
         reason: string;
         type: string;
         isMachineStopped: boolean;
@@ -44,9 +72,11 @@ export const resolvers = {
         severity: string;
       }
     ) => {
+      const machine = await getOrCreateMachine(args.machineName);
+
       const order = await prisma.serviceOrder.create({
         data: {
-          machine:         { connect: { id: args.machineId } },
+          machine:         { connect: { id: machine.id } },
           reason:          args.reason,
           type:            args.type,
           isMachineStopped: args.isMachineStopped,
@@ -62,8 +92,9 @@ export const resolvers = {
 
     updateServiceOrder: async (
       _: unknown,
-      { id, ...updates }: {
+      { id, machineName, ...updates }: {
         id: string;
+        machineName?: string;
         reason?: string;
         type?: string;
         isMachineStopped?: boolean;
@@ -76,6 +107,12 @@ export const resolvers = {
       }
     ) => {
       const data: any = { ...updates };
+      
+      if (machineName) {
+        const machine = await getOrCreateMachine(machineName);
+        data.machine = { connect: { id: machine.id } };
+      }
+
       if (updates.serviceEndDate !== undefined) {
         data.serviceEndDate = updates.serviceEndDate ? new Date(updates.serviceEndDate) : null;
       }

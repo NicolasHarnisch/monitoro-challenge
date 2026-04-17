@@ -32,7 +32,7 @@ import { Machine } from '@/types/service-order';
  * do projeto de referência (machineId, reason, type, isMachineStopped, description).
  */
 const serviceOrderSchema = z.object({
-  machineId:        z.string().min(1, 'Selecione uma máquina.'),
+  machineName:      z.string().min(1, 'Digite o nome da máquina.'),
   reason:           z.string().min(1, 'Preencha este campo.'),
   type:             z.string().min(1, 'Preencha este campo.'),
   isMachineStopped: z.boolean(),
@@ -70,7 +70,7 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ServiceOrderFormData>({
     resolver: zodResolver(serviceOrderSchema),
     defaultValues: initialData ? {
-      machineId:        initialData.machine?.id ?? '',
+      machineName:      initialData.machine ? `${initialData.machine.name} (${initialData.machine.code})` : '',
       reason:           initialData.reason,
       type:             initialData.type,
       isMachineStopped: initialData.isMachineStopped,
@@ -80,16 +80,17 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
     } : {
       isMachineStopped: false,
       severity: 'Média',
+      machineName: '',
     },
   });
 
-  const onSubmit = async (data: ServiceOrderFormData) => {
+  const onSubmit = async (formData: ServiceOrderFormData) => {
     try {
       if (initialData?.id) {
-        await updateServiceOrder({ variables: { id: initialData.id, ...data } });
+        await updateServiceOrder({ variables: { id: initialData.id, ...formData } });
         toast.success('Ordem de serviço atualizada com sucesso!');
       } else {
-        await createServiceOrder({ variables: data });
+        await createServiceOrder({ variables: formData });
         toast.success('Ordem de serviço criada com sucesso!');
       }
       if (onSuccess) onSuccess();
@@ -111,27 +112,23 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
       <form onSubmit={handleSubmit(onSubmit)} className="p-6 pt-4 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-          {/* Seleção de Máquina — baseado no machineId do CreateServiceOrderInput */}
+          {/* Entrada de Máquina — agora como texto com sugestões (datalist) */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold text-gray-800">Máquina *</Label>
-            <Select
-              onValueChange={val => setValue('machineId', val || '')}
-              defaultValue={watch('machineId') || undefined}
-            >
-              <SelectTrigger className={`rounded-[8px] h-10 ${errors.machineId ? 'border-red-500' : 'border-gray-200'}`}>
-                <SelectValue placeholder="Selecione a máquina" />
-              </SelectTrigger>
-              <SelectContent>
-                {machines.map(m => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.name} ({m.code})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.machineId && (
+            <Input
+              {...register('machineName')}
+              list="machines-list"
+              placeholder="Digite o nome da máquina..."
+              className={`rounded-[8px] h-10 ${errors.machineName ? 'border-red-500' : 'border-gray-200'}`}
+            />
+            <datalist id="machines-list">
+              {machines.map(m => (
+                <option key={m.id} value={`${m.name} (${m.code})`} />
+              ))}
+            </datalist>
+            {errors.machineName && (
               <span className="bg-black text-white px-2 py-1 text-xs rounded shadow-sm inline-block">
-                {errors.machineId.message}
+                {errors.machineName.message}
               </span>
             )}
           </div>
@@ -152,7 +149,7 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
 
           <div className="space-y-2">
             <Label className="text-xs font-semibold text-gray-800">Tipo de Serviço *</Label>
-            <Select onValueChange={val => setValue('type', val || '')} defaultValue={watch('type') || undefined}>
+            <Select onValueChange={val => setValue('type', val || '')} value={watch('type') || ''}>
               <SelectTrigger className={`rounded-[8px] h-10 ${errors.type ? 'border-red-500' : 'border-gray-200'}`}>
                 <SelectValue placeholder="Selecione o tipo de serviço" />
               </SelectTrigger>
@@ -200,7 +197,7 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label className="text-xs font-semibold text-gray-800">Severidade *</Label>
-            <Select onValueChange={val => setValue('severity', val || '')} defaultValue={watch('severity') || undefined}>
+            <Select onValueChange={val => setValue('severity', val || '')} value={watch('severity') || ''}>
               <SelectTrigger className={`rounded-[8px] h-10 w-full ${errors.severity ? 'border-red-500' : 'border-gray-200'}`}>
                 <SelectValue placeholder="Severidade" />
               </SelectTrigger>
@@ -215,7 +212,7 @@ export function IncidentForm({ onSuccess, onCancel, initialData }: IncidentFormP
           {initialData && (
             <div className="space-y-2">
               <Label className="text-xs font-semibold text-gray-800">Status *</Label>
-              <Select onValueChange={val => setValue('status', val || '')} defaultValue={watch('status') || undefined}>
+              <Select onValueChange={val => setValue('status', val || '')} value={watch('status') || ''}>
                 <SelectTrigger className="rounded-[8px] h-10 w-full border-gray-200">
                   <SelectValue placeholder="Selecione o Status" />
                 </SelectTrigger>
