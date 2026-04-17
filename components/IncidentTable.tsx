@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * Dashboard principal: lista, filtra, ordena e gerencia ordens de serviço.
- * Os filtros são controlados pela página pai (page.tsx) via props.
+ * Dashboard principal: lista, filtra, ordena e gerencia ordens de serviço
  */
 
 import { useState } from 'react';
@@ -57,11 +56,10 @@ export function IncidentTable({
   onSeverityFilterChange,
   onClearFilters,
 }: IncidentTableProps) {
-  // --- Busca de dados (polling a cada 10s para live sync) ---
-  // Equivalente ao @Query serviceOrders() do ServiceOrderResolver do projeto de referência.
+  // --- Busca de dados (polling a cada 10s) ---
   const { data, loading, error } = useQuery<ServiceOrdersData>(GET_SERVICE_ORDERS, {
     variables: { limit: 100 },
-    pollInterval: 10000, // Live Sync: recarrega a cada 10 segundos
+    pollInterval: 10000,
     notifyOnNetworkStatusChange: false,
   });
 
@@ -91,20 +89,20 @@ export function IncidentTable({
   const incidents = data?.serviceOrders ?? [];
 
   // --- Helpers ---
-  /** Extrai o departamento da máquina relacionada, com fallback para o texto antigo. */
+  /** Extrai o departamento da máquina relacionada */
   const getDepartment = (incident: Incident | null): string => {
     if (!incident) return 'N/A';
     if (incident.machine?.department) return incident.machine.department;
     return 'N/A';
   };
 
-  /** Retorna o nome de exibição da máquina (objeto relacionado ou string legada). */
+  /** Retorna o nome de exibição da máquina */
   const getMachineName = (incident: Incident | null): string => {
     if (!incident) return '';
     return incident.machine?.name ?? (incident as any).machineName ?? '';
   };
 
-  /** Retorna o código da máquina relacionada. */
+  /** Retorna o código da máquina relacionada */
   const getMachineCode = (incident: Incident | null): string => {
     if (!incident) return '';
     return incident.machine?.code ?? '';
@@ -204,7 +202,7 @@ export function IncidentTable({
     }
   };
 
-  // Abre o modal de conclusão — baseado em CompleteServiceOrderInput do projeto de referência.
+  // Abre o modal de conclusão
   const handleOpenComplete = (incident: Incident, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedIncident(incident);
@@ -237,7 +235,6 @@ export function IncidentTable({
     e.stopPropagation();
     try {
       if (incident.status === 'Concluído' && (newStatus === 'Em Andamento' || newStatus === 'Em Aberto')) {
-        // Se estiver reabrindo, limpamos os dados de conclusão
         await updateStatusMutation({ 
           variables: { 
             id: incident.id, 
@@ -254,7 +251,7 @@ export function IncidentTable({
     }
   };
 
-  /** Função específica para reabrir OS limpando os dados de conclusão */
+  /** Função para reabrir OS limpando os dados de conclusão */
   const [reopenServiceOrderMutation] = useMutation(gql`
     mutation ReopenServiceOrder($id: ID!, $status: String!) {
       updateServiceOrder(id: $id, status: $status, serviceEndDate: null, servicePerformed: null, serviceOrderLink: null) {
@@ -526,7 +523,15 @@ export function IncidentTable({
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4 text-[10px] font-bold uppercase tracking-widest">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-4 gap-x-2 text-[10px] font-bold uppercase tracking-widest">
+                  <div className="space-y-1">
+                    <p className="text-gray-400">Data de Início</p>
+                    <p className="text-gray-900">
+                      {selectedIncident?.createdAt 
+                        ? format(new Date(parseInt(selectedIncident.createdAt)), 'dd/MM/yyyy', { locale: ptBR })
+                        : '-'}
+                    </p>
+                  </div>
                   <div className="space-y-1">
                     <p className="text-gray-400">Data de Término</p>
                     <p className="text-emerald-700">
@@ -536,7 +541,7 @@ export function IncidentTable({
                     </p>
                   </div>
                   {selectedIncident?.serviceOrderLink && (
-                    <div className="space-y-1">
+                    <div className="space-y-1 col-span-2 sm:col-span-1">
                       <p className="text-gray-400">Doc. Técnico</p>
                       <a href={selectedIncident.serviceOrderLink.startsWith('http') ? selectedIncident.serviceOrderLink : `https://${selectedIncident.serviceOrderLink}`} 
                          target="_blank" rel="noopener noreferrer" 
@@ -777,7 +782,7 @@ export function IncidentTable({
                 <TableCell className="px-4 py-3 print:hidden">
                   <div className="flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity">
                     <div className="flex items-center justify-end gap-1 w-[72px]">
-                      {/* Botão Concluir OS — aparece apenas para OS em aberto. Equivalente ao modal CompleteServiceOrder do projeto de referência. */}
+                      {/* Botão Concluir OS — aparece apenas para OS em aberto */}
                       {!incident.serviceEndDate && incident.status !== 'Concluído' && (
                         <Button onClick={e => handleOpenComplete(incident, e)}
                           variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 rounded-md hover:bg-emerald-50" title="Concluir OS">

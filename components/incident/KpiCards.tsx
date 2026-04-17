@@ -1,7 +1,5 @@
 'use client';
 
-/** 4 cards de KPI clicáveis que aplicam filtros rápidos na tabela */
-
 import { Clock, AlertTriangle, Activity, ListTodo } from 'lucide-react';
 
 interface KpiCardsProps {

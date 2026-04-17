@@ -2,12 +2,6 @@
 
 /**
  * Formulário de criação e edição de Ordens de Serviço.
- *
- * A estrutura dos campos espelha o CreateServiceOrderInput do projeto de referência:
- *   exemplos-para-desafio-ERP/BACKEND/service-order/dto/create-service-order.input.ts
- *
- * Diferença principal: o projeto de referência usa class-validator + NestJS DI.
- * Aqui, a validação é feita via Zod + React Hook Form, mais adequado para Next.js.
  */
 
 import { useForm } from 'react-hook-form';

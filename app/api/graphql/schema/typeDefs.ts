@@ -1,13 +1,5 @@
 /**
  * Schema GraphQL (SDL).
- *
- * Modelado a partir da estrutura de resolvers e DTOs do projeto de referência:
- *   exemplos-para-desafio-ERP/BACKEND/service-order/service-order.resolver.ts
- *   exemplos-para-desafio-ERP/BACKEND/service-order/dto/create-service-order.input.ts
- *   exemplos-para-desafio-ERP/BACKEND/service-order/dto/complete-service-order.input.ts
- *
- * O projeto de referência usa Apollo Server com NestJS; aqui integramos para
- * Next.js via @as-integrations/next — o schema SDL em si permanece idêntico.
  */
 
 export const typeDefs = `#graphql

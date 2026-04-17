@@ -1,9 +1,6 @@
 /**
  * Queries e Mutations GraphQL centralizadas.
  *
- * Estruturadas a partir das mesmas operações definidas nos resolvers do projeto de referência:
- *   exemplos-para-desafio-ERP/BACKEND/service-order/service-order.resolver.ts
- *
  * Equivalências:
  *   GET_SERVICE_ORDERS   → @Query(() => [ServiceOrder])  serviceOrders()
  *   GET_MACHINES         → @Query(() => [Machine])        machines()
@@ -54,7 +51,6 @@ export const GET_MACHINES = gql`
 
 // ─── MUTATIONS ────────────────────────────────────────────────────────────────
 
-/** Abre uma nova OS — equivalente a createServiceOrder no resolver de referência. */
 export const CREATE_SERVICE_ORDER = gql`
   mutation CreateServiceOrder(
     $machineId:        String!
@@ -80,7 +76,6 @@ export const CREATE_SERVICE_ORDER = gql`
   }
 `;
 
-/** Edição geral dos campos de uma OS. */
 export const UPDATE_SERVICE_ORDER = gql`
   mutation UpdateServiceOrder(
     $id:               ID!
@@ -106,10 +101,6 @@ export const UPDATE_SERVICE_ORDER = gql`
   }
 `;
 
-/**
- * Mutation para atualização rápida de status — usada nas ações rápidas da tabela.
- * Mantém compatibilidade com o padrão de updateServiceOrder do projeto de referência.
- */
 export const UPDATE_STATUS = gql`
   mutation UpdateStatus($id: ID!, $status: String!) {
     updateServiceOrder(id: $id, status: $status) {
@@ -119,11 +110,6 @@ export const UPDATE_STATUS = gql`
   }
 `;
 
-/**
- * Fecha uma OS como Concluída.
- * Equivalente a CompleteServiceOrderInput do projeto de referência —
- * registra data de fim, parecer técnico e link do documento.
- */
 export const COMPLETE_SERVICE_ORDER = gql`
   mutation CompleteServiceOrder(
     $id:               ID!
@@ -153,7 +139,6 @@ export const DELETE_SERVICE_ORDER = gql`
 `;
 
 // ─── ALIASES DE RETROCOMPATIBILIDADE ─────────────────────────────────────────
-// Mantidos para não quebrar referências legadas durante a migração.
 export const GET_LAST_INCIDENTS   = GET_SERVICE_ORDERS;
 export const CREATE_INCIDENT      = CREATE_SERVICE_ORDER;
 export const UPDATE_INCIDENT      = UPDATE_SERVICE_ORDER;

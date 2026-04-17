@@ -2,7 +2,7 @@
 
 interface StatusBadgeProps {
   status: string;
-  isDarkBackground?: boolean; // Inverte a cor do texto para fundos escuros
+  isDarkBackground?: boolean;
 }
 
 export function StatusBadge({ status, isDarkBackground = false }: StatusBadgeProps) {
