@@ -322,17 +322,44 @@ export function IncidentTable({
   }
 
   return (
-    <div className="w-full flex-1 flex flex-col gap-6 relative">
+    <div id="main-layout" className="w-full flex-1 flex flex-col gap-6 relative">
       <style jsx global>{`
         @media print {
           @page { margin: 0mm; size: auto; }
-          body { background-color: white !important; margin: 0 !important; padding: 0 !important; }
-          .no-print { display: none !important; }
+          body { 
+            background-color: white !important; 
+            margin: 0 !important; 
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+          /* Esconde tudo o que não for para imprimir */
+          #main-layout, 
+          header, 
+          footer, 
+          nav, 
+          button, 
+          .no-print { 
+            display: none !important; 
+          }
+          /* Garante que o container de impressão ocupe a página toda */
+          .print-container {
+            display: block !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            z-index: 9999 !important;
+            background: white !important;
+          }
         }
       `}</style>
 
       {/* Documento imprimível — visível apenas ao acionar window.print() */}
-      <div className="hidden print:block fixed inset-0 bg-white text-black z-[100] overflow-hidden">
+      <div className="hidden print:block print-container bg-white text-black">
         {selectedIncident && (
           <div className="p-10 max-w-4xl mx-auto h-full flex flex-col">
             <div className="border-b-4 border-[#382b22] pb-6 mb-8 flex justify-between items-start">

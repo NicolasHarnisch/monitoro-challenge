@@ -8,14 +8,9 @@ import { prisma } from '@/lib/prisma';
 const toTimestamp = (date: Date): string => date.getTime().toString();
 
 export const resolvers = {
-  // ─── QUERIES ──────────────────────────────────────────────────────────────
-  // Baseadas nos @Query do ServiceOrderResolver e MachineService do projeto de referência.
 
+  // ─── QUERIES ──────────────────────────────────────────────────────────────
   Query: {
-    /**
-     * Busca todas as ordens de serviço, incluindo a máquina relacionada.
-     * Equivalente a serviceOrders() do ServiceOrderResolver de referência.
-     */
     serviceOrders: async (_: unknown, { limit }: { limit?: number }) => {
       const orders = await prisma.serviceOrder.findMany({
         orderBy: { createdAt: 'desc' },
@@ -30,24 +25,14 @@ export const resolvers = {
       }));
     },
 
-    /**
-     * Busca todas as máquinas para popular o formulário de criação de OS.
-     * Equivalente a findAll() do MachineService de referência.
-     */
     machines: async () => {
       return prisma.machine.findMany({ orderBy: { name: 'asc' } });
     },
   },
 
   // ─── MUTATIONS ────────────────────────────────────────────────────────────
-  // Baseadas nos @Mutation do ServiceOrderResolver e na lógica do service de referência.
 
   Mutation: {
-    /**
-     * Abre uma nova Ordem de Serviço vinculada a uma Máquina.
-     * Equivalente a create() do ServiceOrderService de referência, que usa
-     * machine: { connect: { id: input.machineId } }.
-     */
     createServiceOrder: async (
       _: unknown,
       args: {
@@ -75,10 +60,6 @@ export const resolvers = {
       return { ...order, createdAt: toTimestamp(order.createdAt), serviceEndDate: null };
     },
 
-    /**
-     * Edição geral dos campos de uma OS.
-     * Equivalente a update() do ServiceOrderService de referência.
-     */
     updateServiceOrder: async (
       _: unknown,
       { id, ...updates }: {
@@ -94,8 +75,6 @@ export const resolvers = {
         serviceOrderLink?: string | null;
       }
     ) => {
-      // Se houver serviceEndDate como string, convertemos para Date. 
-      // Se for nulo, passamos nulo para o Prisma.
       const data: any = { ...updates };
       if (updates.serviceEndDate !== undefined) {
         data.serviceEndDate = updates.serviceEndDate ? new Date(updates.serviceEndDate) : null;
@@ -114,11 +93,6 @@ export const resolvers = {
       };
     },
 
-    /**
-     * Fecha uma OS como "Concluída".
-     * Equivalente a CompleteServiceOrderInput do projeto de referência —
-     * registra data de fim, parecer técnico e link do documento.
-     */
     completeServiceOrder: async (
       _: unknown,
       args: {
@@ -146,7 +120,6 @@ export const resolvers = {
       };
     },
 
-    /** Remove uma OS pelo ID. */
     deleteServiceOrder: async (_: unknown, { id }: { id: string }) => {
       try {
         await prisma.serviceOrder.delete({ where: { id } });
