@@ -16,9 +16,9 @@ O Monitoro surgiu da necessidade de digitalizar o processo de abertura e acompan
 
 **Gestão Completa (CRUD de OS):** Abertura de ordens vinculadas diretamente às entidades de Máquina cadastradas, com validação de dados via Zod e React Hook Form. Fluxos dedicados para edição e atualização rápida de status ("Em Aberto", "Em Andamento", "Concluído").
 
-**Encerramento Técnico:** Modal especializado para a conclusão de manutenções, com registro obrigatório de data e hora do serviço finalizado, campo para parecer técnico e anexo de links externos para laudos.
+**Encerramento Técnico & PDF Inteligente:** Modal especializado para a conclusão de manutenções com registro de parecer técnico e datas reais. O sistema gera automaticamente um documento técnico profissional (PDF) logo após a confirmação, preenchendo todos os dados de execução e calculando o tempo total de intervenção.
 
-**Relatórios e Exportação:** Exportação CSV do grid de dados ativa, ajustada com encoding UTF-8 (BOM) para compatibilidade nativa com Excel. Opção de visualização individual de OS e impressão estruturada (A4) com áreas para assinaturas e apontamento de materiais em campo.
+**Relatórios e Exportação:** Exportação CSV do grid de dados ativa, ajustada com encoding UTF-8 (BOM) para compatibilidade nativa com Excel. Opção de impressão estruturada (A4) com isolamento total de layout, incluindo áreas para assinaturas e apontamento de materiais.
 
 ## Stack
 
@@ -82,7 +82,7 @@ DATABASE_URL="mongodb+srv://usuario:senha@cluster.mongodb.net/monitoro"
 pnpm prisma generate
 
 # Popular o banco com dados de exemplo (opcional)
-node scripts/seed.js
+pnpm prisma db seed
 
 # Iniciar
 pnpm dev
@@ -103,7 +103,7 @@ Algumas funcionalidades que planejo implementar:
 - **Responsável pelo serviço:** Atribuir um técnico específico para executar cada OS.
 - **Histórico:** Log de alterações de status com data e usuário responsável.
 - **Controle de peças:** Registro de materiais utilizados em cada ordem.
-- **Relatório em PDF:** Geração server-side com dados completos da OS.
+- [x] **Relatório em PDF:** Geração dinâmica com dados completos da OS (Implementado via Print Layout).
 
 ---
 

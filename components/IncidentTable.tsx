@@ -226,6 +226,11 @@ export function IncidentTable({
       });
       toast.success('Ordem de serviço concluída com sucesso!');
       setIsCompleteOpen(false);
+      
+      // Aciona automaticamente a impressão da OS concluída para o PDF final
+      setTimeout(() => {
+        handlePrint(selectedIncident);
+      }, 500);
     } catch {
       toast.error('Erro ao concluir a ordem de serviço.');
     }
@@ -322,7 +327,7 @@ export function IncidentTable({
   }
 
   return (
-    <div id="main-layout" className="w-full flex-1 flex flex-col gap-6 relative">
+    <>
       <style jsx global>{`
         @media print {
           @page { margin: 0mm; size: auto; }
@@ -332,9 +337,10 @@ export function IncidentTable({
             padding: 0 !important;
             overflow: visible !important;
           }
-          /* Esconde tudo o que não for para imprimir */
+          /* Esconde o layout principal do site */
           #main-layout, 
           header, 
+          header *,
           footer, 
           nav, 
           button, 
@@ -358,124 +364,9 @@ export function IncidentTable({
         }
       `}</style>
 
-      {/* Documento imprimível — visível apenas ao acionar window.print() */}
-      <div className="hidden print:block print-container bg-white text-black">
-        {selectedIncident && (
-          <div className="p-10 max-w-4xl mx-auto h-full flex flex-col">
-            <div className="border-b-4 border-[#382b22] pb-6 mb-8 flex justify-between items-start">
-              <div>
-                <h1 className="text-4xl font-black uppercase tracking-tight text-[#382b22]">Ordem de Serviço</h1>
-                <div className="mt-2 flex items-center gap-3">
-                  <span className="bg-[#382b22] text-white px-3 py-1 text-lg font-bold rounded-sm">
-                    Nº {selectedIncident.id.slice(-8).toUpperCase()}
-                  </span>
-                  <p className="text-xs font-mono text-gray-400">ID COMPLETO: {selectedIncident.id}</p>
-                </div>
-              </div>
-              <div className="flex gap-10">
-                <div className="text-right">
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Data de Emissão</p>
-                  <p className="text-sm font-bold">{format(new Date(parseInt(selectedIncident.createdAt)), 'dd/MM/yyyy', { locale: ptBR })}</p>
-                  <p className="text-xs text-gray-500">{format(new Date(parseInt(selectedIncident.createdAt)), "HH:mm'h'", { locale: ptBR })}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-bold text-[#382b22] uppercase tracking-widest mb-1">Data de Programação</p>
-                  <p className="text-sm font-bold">{format(new Date(parseInt(selectedIncident.createdAt) + 86400000), 'dd/MM/yyyy', { locale: ptBR })}</p>
-                  <p className="text-xs text-gray-500">PREVISÃO 24H</p>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-x-12 gap-y-6 mb-10">
-              <div className="border-l-4 border-gray-100 pl-4">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Equipamento / Máquina</p>
-                <p className="text-xl font-black uppercase text-gray-900">{getMachineName(selectedIncident)}</p>
-                {getMachineCode(selectedIncident) && (
-                  <p className="text-xs font-mono text-gray-400 mt-0.5">{getMachineCode(selectedIncident)}</p>
-                )}
-                {selectedIncident.isMachineStopped && (
-                  <p className="text-xs font-bold text-red-600 uppercase mt-1 flex items-center">
-                    <AlertTriangle size={12} className="mr-1" /> MÁQUINA PARADA!
-                  </p>
-                )}
-              </div>
-              <div className="border-l-4 border-gray-100 pl-4">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Departamento</p>
-                <p className="text-lg font-bold uppercase">{getDepartment(selectedIncident)}</p>
-              </div>
-              <div className="border-l-4 border-gray-100 pl-4">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Tipo de Manutenção</p>
-                <p className="text-lg uppercase font-bold text-[#382b22]">{selectedIncident.type ?? (selectedIncident as any).typeOfOccurrence}</p>
-              </div>
-              <div className="border-l-4 border-gray-100 pl-4">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Severidade</p>
-                <p className={`text-lg uppercase font-bold ${selectedIncident.severity.toLowerCase() === 'alta' ? 'text-red-600' : 'text-gray-900'}`}>
-                  {selectedIncident.severity}
-                </p>
-              </div>
-            </div>
-            <div className="mb-6">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Motivo da Solicitação</p>
-              <div className="border-2 border-gray-100 p-4 bg-gray-50/50 rounded-sm">
-                <p className="text-lg font-medium">{selectedIncident.reason}</p>
-              </div>
-            </div>
-            <div className="mb-8">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Descrição Detalhada do Serviço</p>
-              <div className="border-2 border-gray-100 p-4 bg-gray-50/50 rounded-sm">
-                <p className="text-sm whitespace-pre-wrap leading-tight text-gray-800">
-                  {selectedIncident.description || 'Nenhuma descrição adicional informada.'}
-                </p>
-              </div>
-            </div>
-            <div className="mb-8">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Peças e Materiais Utilizados</p>
-              <table className="w-full text-xs border-collapse">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border border-gray-300 p-1 text-left w-1/2 uppercase">Descrição do Item</th>
-                    <th className="border border-gray-300 p-1 text-center w-1/6 uppercase">Qtd</th>
-                    <th className="border border-gray-300 p-1 text-center w-1/3 uppercase">Código/Ref</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[1, 2, 3, 4].map(i => (
-                    <tr key={i}>
-                      <td className="border border-gray-300 h-6" />
-                      <td className="border border-gray-300 h-6" />
-                      <td className="border border-gray-300 h-6" />
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mb-8">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Parecer Técnico e Observações Finais</p>
-              <div className="border border-gray-300 h-24 rounded-sm flex flex-col justify-between p-2">
-                <div className="flex justify-between text-[8px] text-gray-400 uppercase">
-                  <span>Início: ___/___/___ ___:___</span>
-                  <span>Conclusão: ___/___/___ ___:___</span>
-                  <span>H. Totais: _______</span>
-                </div>
-              </div>
-            </div>
-            <div className="mt-auto pt-4 grid grid-cols-3 gap-10 px-4">
-              {['Solicitante', 'Técnico Executante', 'Gestor / Qualidade'].map(role => (
-                <div key={role} className="text-center">
-                  <div className="border-t border-gray-400 pt-1">
-                    <p className="font-bold text-[9px] uppercase text-gray-500">{role}</p>
-                    <p className="text-[8px] text-gray-300 mt-1">NOME E VISTO</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-8 pt-4 border-t border-gray-100 text-center text-[9px] text-gray-400 font-mono flex justify-between items-center">
-              <span>MONITORO v1.0 - GESTÃO DE MANUTENÇÃO</span>
-              <span className="uppercase font-bold">Status: {selectedIncident.status}</span>
-              <span>PÁGINA 1 DE 1</span>
-            </div>
-          </div>
-        )}
-      </div>
+      <div id="main-layout" className="w-full flex-1 flex flex-col gap-6 relative">
+
+
 
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent showCloseButton={false} className="w-[95vw] sm:max-w-[550px] border-0 rounded-[20px] p-0 overflow-hidden bg-white shadow-2xl flex flex-col max-h-[95vh]">
@@ -871,5 +762,130 @@ export function IncidentTable({
         </Table>
       </div>
     </div>
+
+    {/* Documento imprimível — visível apenas ao acionar window.print() */}
+      <div className="hidden print:block print-container bg-white text-black">
+        {selectedIncident && (
+          <div className="p-10 max-w-4xl mx-auto h-full flex flex-col">
+            <div className="border-b-4 border-[#382b22] pb-6 mb-8 flex justify-between items-start">
+              <div>
+                <h1 className="text-4xl font-black uppercase tracking-tight text-[#382b22]">Ordem de Serviço</h1>
+                <div className="mt-2 flex items-center gap-3">
+                  <span className="bg-[#382b22] text-white px-3 py-1 text-lg font-bold rounded-sm">
+                    Nº {selectedIncident.id.slice(-8).toUpperCase()}
+                  </span>
+                  <p className="text-xs font-mono text-gray-400">ID COMPLETO: {selectedIncident.id}</p>
+                </div>
+              </div>
+              <div className="flex gap-10">
+                <div className="text-right">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Data de Emissão</p>
+                  <p className="text-sm font-bold">{format(new Date(parseInt(selectedIncident.createdAt)), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                  <p className="text-xs text-gray-500">{format(new Date(parseInt(selectedIncident.createdAt)), "HH:mm'h'", { locale: ptBR })}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-[#382b22] uppercase tracking-widest mb-1">Data de Programação</p>
+                  <p className="text-sm font-bold">{format(new Date(parseInt(selectedIncident.createdAt) + 86400000), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                  <p className="text-xs text-gray-500">PREVISÃO 24H</p>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-x-12 gap-y-6 mb-10">
+              <div className="border-l-4 border-gray-100 pl-4">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Equipamento / Máquina</p>
+                <p className="text-xl font-black uppercase text-gray-900">{getMachineName(selectedIncident)}</p>
+                {getMachineCode(selectedIncident) && (
+                  <p className="text-xs font-mono text-gray-400 mt-0.5">{getMachineCode(selectedIncident)}</p>
+                )}
+                {selectedIncident.isMachineStopped && (
+                  <p className="text-xs font-bold text-red-600 uppercase mt-1 flex items-center">
+                    <AlertTriangle size={12} className="mr-1" /> MÁQUINA PARADA!
+                  </p>
+                )}
+              </div>
+              <div className="border-l-4 border-gray-100 pl-4">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Departamento</p>
+                <p className="text-lg font-bold uppercase">{getDepartment(selectedIncident)}</p>
+              </div>
+              <div className="border-l-4 border-gray-100 pl-4">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Tipo de Manutenção</p>
+                <p className="text-lg uppercase font-bold text-[#382b22]">{selectedIncident.type ?? (selectedIncident as any).typeOfOccurrence}</p>
+              </div>
+              <div className="border-l-4 border-gray-100 pl-4">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Severidade</p>
+                <p className={`text-lg uppercase font-bold ${selectedIncident.severity.toLowerCase() === 'alta' ? 'text-red-600' : 'text-gray-900'}`}>
+                  {selectedIncident.severity}
+                </p>
+              </div>
+            </div>
+            <div className="mb-6">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Motivo da Solicitação</p>
+              <div className="border-2 border-gray-100 p-4 bg-gray-50/50 rounded-sm">
+                <p className="text-lg font-medium">{selectedIncident.reason}</p>
+              </div>
+            </div>
+            <div className="mb-8">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Descrição Detalhada do Serviço</p>
+              <div className="border-2 border-gray-100 p-4 bg-gray-50/50 rounded-sm">
+                <p className="text-sm whitespace-pre-wrap leading-tight text-gray-800">
+                  {selectedIncident.description || 'Nenhuma descrição adicional informada.'}
+                </p>
+              </div>
+            </div>
+            <div className="mb-8">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Peças e Materiais Utilizados</p>
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border border-gray-300 p-1 text-left w-1/2 uppercase">Descrição do Item</th>
+                    <th className="border border-gray-300 p-1 text-center w-1/6 uppercase">Qtd</th>
+                    <th className="border border-gray-300 p-1 text-center w-1/3 uppercase">Código/Ref</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[1, 2, 3, 4].map(i => (
+                    <tr key={i}>
+                      <td className="border border-gray-300 h-6" />
+                      <td className="border border-gray-300 h-6" />
+                      <td className="border border-gray-300 h-6" />
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mb-8">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Parecer Técnico e Observações Finais</p>
+              <div className="border border-gray-300 min-h-24 rounded-sm flex flex-col justify-between p-3 bg-gray-50/30">
+                <div className="text-sm italic text-gray-800 leading-tight">
+                  {selectedIncident.servicePerformed || (
+                    <span className="text-gray-300 font-mono">__________________________________________________________________</span>
+                  )}
+                </div>
+                <div className="flex justify-between text-[8px] text-gray-500 uppercase mt-4 font-bold tracking-wider">
+                  <span>Início: {format(new Date(parseInt(selectedIncident.createdAt)), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</span>
+                  <span>Conclusão: {selectedIncident.serviceEndDate ? format(new Date(parseInt(selectedIncident.serviceEndDate)), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '___/___/___ ___:___'}</span>
+                  <span>H. Totais: {selectedIncident.serviceEndDate ? `${Math.round((parseInt(selectedIncident.serviceEndDate) - parseInt(selectedIncident.createdAt)) / 3600000)}h` : '_______'}</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-auto pt-4 grid grid-cols-3 gap-10 px-4">
+              {['Solicitante', 'Técnico Executante', 'Gestor / Qualidade'].map(role => (
+                <div key={role} className="text-center">
+                  <div className="border-t border-gray-400 pt-1">
+                    <p className="font-bold text-[9px] uppercase text-gray-500">{role}</p>
+                    <p className="text-[8px] text-gray-300 mt-1">NOME E VISTO</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-8 pt-4 border-t border-gray-100 text-center text-[9px] text-gray-400 font-mono flex justify-between items-center">
+              <span>MONITORO v1.0 - GESTÃO DE MANUTENÇÃO</span>
+              <span className="uppercase font-bold">Status: {selectedIncident.status}</span>
+              <span>PÁGINA 1 DE 1</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
